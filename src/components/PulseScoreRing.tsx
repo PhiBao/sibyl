@@ -1,6 +1,6 @@
 "use client";
 
-import { getScoreTier } from "@/lib/config";
+import { getScoreTier } from "@/lib/web3";
 
 interface PulseScoreRingProps {
   score: number;

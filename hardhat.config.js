@@ -1,4 +1,8 @@
 import "@nomicfoundation/hardhat-ethers";
+import * as dotenv from "dotenv";
+dotenv.config();
+
+const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000001";
 
 const config = {
   solidity: {
@@ -8,11 +12,17 @@ const config = {
     },
   },
   networks: {
-    kite: {
+    kiteTestnet: {
       type: "http",
       url: "https://rpc-testnet.gokite.ai",
+      chainId: 2368,
+      accounts: [PRIVATE_KEY],
+    },
+    kiteMainnet: {
+      type: "http",
+      url: "https://rpc.gokite.ai",
       chainId: 2366,
-      accounts: ["0x6056187844c5b4d9bc4313c216152cf3f068d99c4abbd835ac4364caacd8c577"],
+      accounts: [PRIVATE_KEY],
     },
   },
 };
