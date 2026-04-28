@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { DEMO_MARKETPLACE, DEMO_AGENT, getScoreTier } from "@/lib/config";
 
 export default function Marketplace() {
@@ -8,23 +7,15 @@ export default function Marketplace() {
 
   return (
     <div className="min-h-screen max-w-7xl mx-auto px-6 py-16">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <div className="fade-in">
         <h1 className="text-4xl font-bold tracking-tight mb-2">Pulse Market</h1>
         <p className="text-text-secondary text-lg mb-12">
           Services priced by your reputation. Higher scores unlock better rates.
         </p>
-      </motion.div>
+      </div>
 
       {/* Category filters */}
-      <motion.div
-        className="flex gap-3 mb-8 flex-wrap"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-      >
+      <div className="flex gap-3 mb-8 flex-wrap fade-in" style={{ animationDelay: "0.2s" }}>
         {["All", "API", "Data", "Compute", "Storage", "Creative"].map((cat) => (
           <button
             key={cat}
@@ -37,7 +28,7 @@ export default function Marketplace() {
             {cat}
           </button>
         ))}
-      </motion.div>
+      </div>
 
       {/* Service Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -46,17 +37,14 @@ export default function Marketplace() {
           const tier = getScoreTier(service.minScore);
 
           return (
-            <motion.div
+            <div
               key={service.id}
-              className={`glass rounded-2xl p-6 transition-all ${
+              className={`glass rounded-2xl p-6 transition-all fade-in ${
                 accessible
                   ? "hover:border-pulse-green/30 cursor-pointer"
                   : "opacity-50"
               }`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: accessible ? 1 : 0.5, y: 0 }}
-              transition={{ delay: 0.3 + i * 0.05 }}
-              whileHover={accessible ? { y: -4 } : undefined}
+              style={{ animationDelay: `${0.3 + i * 0.05}s` }}
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
@@ -103,25 +91,20 @@ export default function Marketplace() {
               >
                 {accessible ? "Pulse-Optimized Purchase" : `Need ${service.minScore}+ Score`}
               </button>
-            </motion.div>
+            </div>
           );
         })}
       </div>
 
       {/* Score gate explanation */}
-      <motion.div
-        className="glass rounded-2xl p-8 mt-12 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
-      >
+      <div className="glass rounded-2xl p-8 mt-12 text-center fade-in" style={{ animationDelay: "1s" }}>
         <h3 className="text-xl font-semibold mb-3">How Score Gates Work</h3>
         <p className="text-text-secondary max-w-2xl mx-auto">
           Service providers set minimum Pulse Score thresholds to ensure quality interactions.
           Build your reputation through successful transactions to unlock premium services
           and better pricing. Your score is verified on-chain — no shortcuts, no gaming.
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

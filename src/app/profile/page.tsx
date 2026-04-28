@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import PulseScoreRing from "@/components/PulseScoreRing";
 import { DEMO_AGENT, getScoreTier, SCORE_TIERS } from "@/lib/config";
 
@@ -10,11 +9,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen max-w-4xl mx-auto px-6 py-16">
       {/* Agent Header */}
-      <motion.div
-        className="text-center mb-12"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <div className="text-center mb-12 fade-in">
         <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pulse-green/20 to-accent-blue/20 flex items-center justify-center text-3xl mx-auto mb-4 glow">
           🤖
         </div>
@@ -28,25 +23,15 @@ export default function Profile() {
             ✓ Passport Verified
           </span>
         </div>
-      </motion.div>
+      </div>
 
       {/* Score Ring */}
-      <motion.div
-        className="flex justify-center mb-12"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.3, type: "spring" }}
-      >
+      <div className="flex justify-center mb-12 fade-in" style={{ animationDelay: "0.3s" }}>
         <PulseScoreRing score={DEMO_AGENT.score} size={220} />
-      </motion.div>
+      </div>
 
       {/* Score Breakdown */}
-      <motion.div
-        className="glass rounded-2xl p-6 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
+      <div className="glass rounded-2xl p-6 mb-6 fade-in" style={{ animationDelay: "0.5s" }}>
         <h3 className="text-lg font-semibold mb-6">Score Breakdown</h3>
         <div className="space-y-4">
           {[
@@ -61,26 +46,22 @@ export default function Profile() {
                 <span className="text-sm font-mono">{factor.value}/{factor.max}</span>
               </div>
               <div className="h-2 bg-surface-overlay rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: factor.color }}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(factor.value / factor.max) * 100}%` }}
-                  transition={{ delay: 0.8 + i * 0.1, duration: 1, ease: "easeOut" }}
+                <div
+                  className="h-full rounded-full score-bar-animate"
+                  style={{
+                    background: factor.color,
+                    "--target-width": `${(factor.value / factor.max) * 100}%`,
+                    animationDelay: `${0.8 + i * 0.1}s`,
+                  } as React.CSSProperties}
                 />
               </div>
             </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Score Tiers Legend */}
-      <motion.div
-        className="glass rounded-2xl p-6 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-      >
+      <div className="glass rounded-2xl p-6 mb-6 fade-in" style={{ animationDelay: "0.7s" }}>
         <h3 className="text-lg font-semibold mb-4">Reputation Tiers</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {SCORE_TIERS.map((t) => (
@@ -101,15 +82,10 @@ export default function Profile() {
             </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Agent Stats */}
-      <motion.div
-        className="glass rounded-2xl p-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.9 }}
-      >
+      <div className="glass rounded-2xl p-6 fade-in" style={{ animationDelay: "0.9s" }}>
         <h3 className="text-lg font-semibold mb-4">On-Chain Record</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
@@ -124,7 +100,7 @@ export default function Profile() {
             </div>
           ))}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

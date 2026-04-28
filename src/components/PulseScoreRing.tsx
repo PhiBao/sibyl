@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { getScoreTier } from "@/lib/config";
 
 interface PulseScoreRingProps {
@@ -36,7 +35,7 @@ export default function PulseScoreRing({ score, size = 240, strokeWidth = 12 }: 
           strokeWidth={strokeWidth}
         />
         {/* Progress arc */}
-        <motion.circle
+        <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -45,12 +44,11 @@ export default function PulseScoreRing({ score, size = 240, strokeWidth = 12 }: 
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 2, ease: "easeOut" }}
+          strokeDashoffset={offset}
+          className="score-ring-animate"
         />
         {/* Glow effect on the arc */}
-        <motion.circle
+        <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -59,33 +57,24 @@ export default function PulseScoreRing({ score, size = 240, strokeWidth = 12 }: 
           strokeWidth={strokeWidth + 8}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 2, ease: "easeOut" }}
+          strokeDashoffset={offset}
           opacity={0.15}
           filter="blur(8px)"
+          className="score-ring-animate"
         />
       </svg>
 
       {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.span
-          className="text-6xl font-bold tracking-tighter"
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5, duration: 0.8, type: "spring" }}
-        >
+        <span className="text-6xl font-bold tracking-tighter fade-in" style={{ animationDelay: "0.5s" }}>
           {score}
-        </motion.span>
-        <motion.span
-          className="text-sm font-medium mt-1"
-          style={{ color: tier.color }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
+        </span>
+        <span
+          className="text-sm font-medium mt-1 fade-in"
+          style={{ color: tier.color, animationDelay: "1.2s" }}
         >
           {tier.icon} {tier.label}
-        </motion.span>
+        </span>
       </div>
     </div>
   );

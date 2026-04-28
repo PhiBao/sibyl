@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 interface StatCardProps {
   label: string;
   value: string;
@@ -13,12 +11,9 @@ interface StatCardProps {
 
 export default function StatCard({ label, value, change, positive = true, icon, delay = 0 }: StatCardProps) {
   return (
-    <motion.div
-      className="glass rounded-2xl p-6 hover:border-white/15 transition-all group"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5 }}
-      whileHover={{ y: -2 }}
+    <div
+      className="glass rounded-2xl p-6 hover:border-white/15 transition-all group fade-in"
+      style={{ animationDelay: `${delay}s` }}
     >
       <div className="flex items-start justify-between mb-4">
         <span className="text-2xl">{icon}</span>
@@ -34,6 +29,6 @@ export default function StatCard({ label, value, change, positive = true, icon, 
       </div>
       <p className="text-text-secondary text-sm mb-1">{label}</p>
       <p className="text-2xl font-bold tracking-tight">{value}</p>
-    </motion.div>
+    </div>
   );
 }

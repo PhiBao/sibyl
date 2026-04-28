@@ -32,7 +32,13 @@ body {
   overflow-x: hidden;
 }
 
-/* Pulse animation */
+/* ─── Animations ─── */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes pulse-ring {
   0% { transform: scale(0.95); opacity: 1; }
   50% { transform: scale(1); opacity: 0.8; }
@@ -49,10 +55,30 @@ body {
   50% { transform: translateY(-10px); }
 }
 
+@keyframes score-ring-fill {
+  from { stroke-dashoffset: 753; }
+}
+
+@keyframes score-bar-fill {
+  from { width: 0%; }
+  to { width: var(--target-width, 100%); }
+}
+
+@keyframes score-line-draw {
+  from { stroke-dashoffset: 1000; }
+}
+
 @keyframes gradient-shift {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
+}
+
+/* ─── Animation Classes ─── */
+
+.fade-in {
+  opacity: 0;
+  animation: fade-in 0.6s ease-out forwards;
 }
 
 .pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
@@ -63,7 +89,25 @@ body {
   animation: gradient-shift 8s ease infinite;
 }
 
-/* Glassmorphism card */
+.score-ring-animate {
+  stroke-dashoffset: 753;
+  animation: score-ring-fill 2s ease-out forwards;
+}
+
+.score-bar-animate {
+  width: 0%;
+  animation: score-bar-fill 1s ease-out forwards;
+}
+
+.score-line-animate {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: score-line-draw 1.5s ease-out forwards;
+  animation-delay: 0.8s;
+}
+
+/* ─── Glassmorphism ─── */
+
 .glass {
   background: rgba(28, 28, 30, 0.7);
   backdrop-filter: blur(20px);
@@ -78,22 +122,15 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* Score ring SVG animation */
-@keyframes score-fill {
-  from { stroke-dashoffset: 440; }
-}
+/* ─── Scrollbar ─── */
 
-.score-ring-animate {
-  animation: score-fill 2s ease-out forwards;
-}
-
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #38383A; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #48484A; }
 
-/* Mesh gradient background */
+/* ─── Mesh gradient background ─── */
+
 .mesh-bg {
   background:
     radial-gradient(ellipse at 20% 50%, rgba(48, 209, 88, 0.08) 0%, transparent 50%),

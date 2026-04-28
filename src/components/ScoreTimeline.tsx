@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 interface ScoreHistoryPoint {
   date: string;
   score: number;
@@ -35,12 +33,7 @@ export default function ScoreTimeline() {
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
 
   return (
-    <motion.div
-      className="glass rounded-2xl p-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.6 }}
-    >
+    <div className="glass rounded-2xl p-6 fade-in" style={{ animationDelay: "0.6s" }}>
       <h3 className="text-lg font-semibold mb-1">Score Growth</h3>
       <p className="text-text-secondary text-sm mb-4">8-week trajectory</p>
 
@@ -57,38 +50,29 @@ export default function ScoreTimeline() {
         })}
 
         {/* Area fill */}
-        <motion.path
-          d={areaPath}
-          fill="url(#gradient)"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.3 }}
-          transition={{ delay: 1, duration: 1 }}
-        />
+        <path d={areaPath} fill="url(#gradient)" opacity={0.3} />
 
         {/* Line */}
-        <motion.path
+        <path
           d={linePath}
           fill="none"
           stroke="#30D158"
           strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ delay: 0.8, duration: 1.5, ease: "easeOut" }}
+          className="score-line-animate"
         />
 
         {/* Data points */}
         {points.map((p, i) => (
-          <motion.circle
+          <circle
             key={i}
             cx={p.x}
             cy={p.y}
             r={4}
             fill="#30D158"
-            initial={{ opacity: 0, r: 0 }}
-            animate={{ opacity: 1, r: 4 }}
-            transition={{ delay: 1.5 + i * 0.1 }}
+            className="fade-in"
+            style={{ animationDelay: `${1.5 + i * 0.1}s` }}
           />
         ))}
 
@@ -100,6 +84,6 @@ export default function ScoreTimeline() {
           </linearGradient>
         </defs>
       </svg>
-    </motion.div>
+    </div>
   );
 }

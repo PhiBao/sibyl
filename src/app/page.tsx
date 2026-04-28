@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import PulseScoreRing from "@/components/PulseScoreRing";
 import StatCard from "@/components/StatCard";
 import TransactionHistory from "@/components/TransactionHistory";
@@ -19,39 +18,24 @@ export default function Dashboard() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-6 py-16">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <motion.div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-            >
+          <div className="text-center mb-16 fade-in">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
               <div className="w-2 h-2 rounded-full bg-pulse-green pulse-ring" />
               <span className="text-sm text-text-secondary">Live on Kite Chain</span>
-            </motion.div>
+            </div>
             <h1 className="text-5xl font-bold tracking-tight mb-4">
               Your Agent&apos;s <span className="text-pulse-green">Pulse</span>
             </h1>
             <p className="text-text-secondary text-lg max-w-xl mx-auto">
               Reputation earned through real transactions. Every payment builds trust.
             </p>
-          </motion.div>
+          </div>
 
           {/* Main Score Display */}
           <div className="flex flex-col lg:flex-row items-center gap-16 mb-16">
-            <motion.div
-              className="flex-shrink-0"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.8, type: "spring" }}
-            >
+            <div className="flex-shrink-0 fade-in" style={{ animationDelay: "0.2s" }}>
               <PulseScoreRing score={DEMO_AGENT.score} size={280} strokeWidth={14} />
-            </motion.div>
+            </div>
 
             <div className="flex-1 w-full">
               <div className="grid grid-cols-2 gap-4">
@@ -61,7 +45,7 @@ export default function Dashboard() {
                   change="0.3%"
                   positive={true}
                   icon="✓"
-                  delay={0.4}
+                  delay={0.3}
                 />
                 <StatCard
                   label="Transactions"
@@ -69,7 +53,7 @@ export default function Dashboard() {
                   change="12 today"
                   positive={true}
                   icon="⚡"
-                  delay={0.5}
+                  delay={0.4}
                 />
                 <StatCard
                   label="Total Spent"
@@ -77,7 +61,7 @@ export default function Dashboard() {
                   change="$340 this week"
                   positive={true}
                   icon="💰"
-                  delay={0.6}
+                  delay={0.5}
                 />
                 <StatCard
                   label="Avg Transaction"
@@ -85,7 +69,7 @@ export default function Dashboard() {
                   change="−$1.20"
                   positive={false}
                   icon="📊"
-                  delay={0.7}
+                  delay={0.6}
                 />
               </div>
             </div>
@@ -101,12 +85,7 @@ export default function Dashboard() {
         </div>
 
         {/* Agent Info Card */}
-        <motion.div
-          className="glass rounded-2xl p-6 mt-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
+        <div className="glass rounded-2xl p-6 mt-6 fade-in" style={{ animationDelay: "0.8s" }}>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h3 className="text-lg font-semibold mb-1">Agent Identity</h3>
@@ -127,7 +106,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </section>
     </div>
   );
