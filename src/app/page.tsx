@@ -9,100 +9,72 @@ import { DEMO_AGENT, DEMO_TRANSACTIONS } from "@/lib/config";
 export default function Dashboard() {
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
+      {/* Hero — Score is the star */}
       <section className="relative overflow-hidden">
-        {/* Animated background mesh */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-20 left-1/4 w-96 h-96 bg-pulse-green/10 rounded-full blur-[128px] float" />
-          <div className="absolute top-40 right-1/4 w-72 h-72 bg-accent-blue/10 rounded-full blur-[96px] float" style={{ animationDelay: "-3s" }} />
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-10 left-1/3 w-[500px] h-[500px] bg-pulse-green/8 rounded-full blur-[160px] float" />
+          <div className="absolute top-32 right-1/4 w-80 h-80 bg-accent-blue/6 rounded-full blur-[120px] float" style={{ animationDelay: "-3s" }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-6 py-16">
-          <div className="text-center mb-16 fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
-              <div className="w-2 h-2 rounded-full bg-pulse-green pulse-ring" />
-              <span className="text-sm text-text-secondary">Live on Kite Chain</span>
+        <div className="relative max-w-6xl mx-auto px-6 pt-12 pb-16">
+          {/* Status Badge */}
+          <div className="flex justify-center mb-8 fade-in">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass text-[12px] text-text-secondary">
+              <div className="w-1.5 h-1.5 rounded-full bg-pulse-green pulse-ring" />
+              Live on Kite Chain · Chain ID 2366
             </div>
-            <h1 className="text-5xl font-bold tracking-tight mb-4">
-              Your Agent&apos;s <span className="text-pulse-green">Pulse</span>
-            </h1>
-            <p className="text-text-secondary text-lg max-w-xl mx-auto">
-              Reputation earned through real transactions. Every payment builds trust.
-            </p>
           </div>
 
-          {/* Main Score Display */}
-          <div className="flex flex-col lg:flex-row items-center gap-16 mb-16">
-            <div className="flex-shrink-0 fade-in" style={{ animationDelay: "0.2s" }}>
-              <PulseScoreRing score={DEMO_AGENT.score} size={280} strokeWidth={14} />
+          {/* Score Hero */}
+          <div className="flex flex-col items-center mb-12 fade-in-up" style={{ animationDelay: "0.1s" }}>
+            <PulseScoreRing score={DEMO_AGENT.score} size={220} strokeWidth={12} />
+            <div className="mt-6 text-center">
+              <h1 className="text-2xl font-bold tracking-tight mb-1">Your Agent&apos;s Pulse</h1>
+              <p className="text-text-secondary text-sm">Reputation earned through real transactions</p>
             </div>
+          </div>
 
-            <div className="flex-1 w-full">
-              <div className="grid grid-cols-2 gap-4">
-                <StatCard
-                  label="Success Rate"
-                  value={`${DEMO_AGENT.successRate}%`}
-                  change="0.3%"
-                  positive={true}
-                  icon="✓"
-                  delay={0.3}
-                />
-                <StatCard
-                  label="Transactions"
-                  value={DEMO_AGENT.totalTransactions.toLocaleString()}
-                  change="12 today"
-                  positive={true}
-                  icon="⚡"
-                  delay={0.4}
-                />
-                <StatCard
-                  label="Total Spent"
-                  value={`$${DEMO_AGENT.totalSpent.toLocaleString()}`}
-                  change="$340 this week"
-                  positive={true}
-                  icon="💰"
-                  delay={0.5}
-                />
-                <StatCard
-                  label="Avg Transaction"
-                  value={`$${DEMO_AGENT.avgTransactionValue}`}
-                  change="−$1.20"
-                  positive={false}
-                  icon="📊"
-                  delay={0.6}
-                />
-              </div>
-            </div>
+          {/* Stats Grid — clean 4-column */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto">
+            <StatCard label="Success Rate" value={`${DEMO_AGENT.successRate}%`} change="+0.3%" positive icon="✓" delay={0.2} />
+            <StatCard label="Transactions" value={DEMO_AGENT.totalTransactions.toLocaleString()} change="12 today" positive icon="⚡" delay={0.3} />
+            <StatCard label="Total Spent" value={`$${DEMO_AGENT.totalSpent.toLocaleString()}`} change="+$340" positive icon="💰" delay={0.4} />
+            <StatCard label="Avg Value" value={`$${DEMO_AGENT.avgTransactionValue}`} change="-$1.20" positive={false} icon="📊" delay={0.5} />
           </div>
         </div>
       </section>
 
-      {/* Details Section */}
-      <section className="max-w-7xl mx-auto px-6 pb-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TransactionHistory transactions={DEMO_TRANSACTIONS} />
-          <ScoreTimeline />
-        </div>
-
-        {/* Agent Info Card */}
-        <div className="glass rounded-2xl p-6 mt-6 fade-in" style={{ animationDelay: "0.8s" }}>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-1">Agent Identity</h3>
-              <p className="text-text-secondary text-sm font-mono">{DEMO_AGENT.address}</p>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-text-tertiary text-xs mb-1">Member Since</p>
-                <p className="text-sm font-medium">{DEMO_AGENT.memberSince}</p>
+      {/* Details Section — Two-column */}
+      <section className="max-w-6xl mx-auto px-6 pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Transactions — wider column */}
+          <div className="lg:col-span-3">
+            <TransactionHistory transactions={DEMO_TRANSACTIONS} />
+          </div>
+          {/* Chart + Agent Info — narrower */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <ScoreTimeline />
+            {/* Agent Identity — compact */}
+            <div className="glass rounded-2xl p-5 fade-in" style={{ animationDelay: "0.7s" }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-pulse-green/10 flex items-center justify-center text-sm">🤖</div>
+                <div>
+                  <p className="text-sm font-medium">Demo Agent</p>
+                  <p className="text-[11px] text-text-tertiary font-mono">{DEMO_AGENT.address.slice(0, 10)}...{DEMO_AGENT.address.slice(-6)}</p>
+                </div>
+                <span className="ml-auto text-[11px] text-pulse-green bg-pulse-green/10 px-2 py-0.5 rounded-full">✓ Verified</span>
               </div>
-              <div className="text-center">
-                <p className="text-text-tertiary text-xs mb-1">Passport</p>
-                <p className="text-sm font-medium text-pulse-green">✓ Verified</p>
-              </div>
-              <div className="text-center">
-                <p className="text-text-tertiary text-xs mb-1">Chain</p>
-                <p className="text-sm font-medium">Kite (2366)</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Since", value: DEMO_AGENT.memberSince },
+                  { label: "Chain", value: "Kite" },
+                  { label: "Tier", value: "Reliable" },
+                ].map((item) => (
+                  <div key={item.label} className="text-center py-2 rounded-lg bg-white/[0.02]">
+                    <p className="text-[10px] text-text-tertiary uppercase tracking-wider">{item.label}</p>
+                    <p className="text-xs font-medium mt-0.5">{item.value}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

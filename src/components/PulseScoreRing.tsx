@@ -8,7 +8,7 @@ interface PulseScoreRingProps {
   strokeWidth?: number;
 }
 
-export default function PulseScoreRing({ score, size = 240, strokeWidth = 12 }: PulseScoreRingProps) {
+export default function PulseScoreRing({ score, size = 220, strokeWidth = 10 }: PulseScoreRingProps) {
   const tier = getScoreTier(score);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -17,61 +17,36 @@ export default function PulseScoreRing({ score, size = 240, strokeWidth = 12 }: 
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      {/* Background glow */}
+      {/* Subtle glow */}
       <div
-        className="absolute inset-0 rounded-full blur-3xl opacity-30"
+        className="absolute inset-6 rounded-full blur-[60px] opacity-20"
         style={{ background: tier.color }}
       />
 
-      {/* SVG Ring */}
       <svg width={size} height={size} className="transform -rotate-90">
-        {/* Background track */}
+        {/* Track */}
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="#38383A"
-          strokeWidth={strokeWidth}
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke="#1C1C1E" strokeWidth={strokeWidth}
         />
-        {/* Progress arc */}
+        {/* Progress */}
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={tier.color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="score-ring-animate"
-        />
-        {/* Glow effect on the arc */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={tier.color}
-          strokeWidth={strokeWidth + 8}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          opacity={0.15}
-          filter="blur(8px)"
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke={tier.color}
+          strokeWidth={strokeWidth} strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
           className="score-ring-animate"
         />
       </svg>
 
-      {/* Center content */}
+      {/* Center */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-6xl font-bold tracking-tighter fade-in" style={{ animationDelay: "0.5s" }}>
+        <span className="text-[56px] font-bold tracking-tighter leading-none fade-in" style={{ animationDelay: "0.5s" }}>
           {score}
         </span>
         <span
-          className="text-sm font-medium mt-1 fade-in"
-          style={{ color: tier.color, animationDelay: "1.2s" }}
+          className="text-[13px] font-medium mt-1.5 fade-in"
+          style={{ color: tier.color, animationDelay: "0.8s" }}
         >
           {tier.icon} {tier.label}
         </span>
