@@ -1,5 +1,6 @@
 import { createConfig, http } from "wagmi";
 import { defineChain } from "viem";
+import { metaMask, walletConnect, coinbaseWallet } from "wagmi/connectors";
 
 // Kite AI Testnet
 export const kiteTestnet = defineChain({
@@ -27,8 +28,22 @@ export const kiteMainnet = defineChain({
   },
 });
 
+// WalletConnect project ID (free tier)
+const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "c4f79cc821944d9680842e34466bfb";
+
 export const config = createConfig({
   chains: [kiteTestnet, kiteMainnet],
+  connectors: [
+    metaMask(),
+    walletConnect({
+      projectId: WC_PROJECT_ID,
+      showQrModal: true,
+    }),
+    coinbaseWallet({
+      appName: "KitePulse",
+      appLogoUrl: "https://kitepulse.dev/icon.png",
+    }),
+  ],
   transports: {
     [kiteTestnet.id]: http("https://rpc-testnet.gokite.ai"),
     [kiteMainnet.id]: http("https://rpc.gokite.ai"),
