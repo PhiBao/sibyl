@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { getScoreTier } from "@/lib/web3";
 
 interface PulseScoreRingProps {
@@ -13,42 +14,59 @@ export default function PulseScoreRing({ score, size = 220, strokeWidth = 10 }: 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = score / 1000;
-  const offset = circumference * (1 - progress);
+  const targetOffset = circumference * (1 - progress);
+
+  const [offset, setOffset] = useState(circumference);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setOffset(targetOffset), 50);
+    return () => clearTimeout(timer);
+  }, [targetOffset]);
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      {/* Subtle glow */}
       <div
-        className="absolute inset-6 rounded-full blur-[60px] opacity-20"
-        style={{ background: tier.color }}
+        className="absolute rounded-full blur-[50px] opacity-15"
+        style={{
+          width: size * 0.6,
+          height: size * 0.6,
+          background: tier.color,
+        }}
       />
-
       <svg width={size} height={size} className="transform -rotate-90">
-        {/* Track */}
         <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="#1C1C1E" strokeWidth={strokeWidth}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#1a1a1a"
+          strokeWidth={strokeWidth}
         />
-        {/* Progress */}
         <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke={tier.color}
-          strokeWidth={strokeWidth} strokeLinecap="round"
-          strokeDasharray={circumference} strokeDashoffset={offset}
-          className="score-ring-animate"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={tier.color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="butt"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 1.5s ease-out", filter: `drop-shadow(0 0 4px ${tier.color}40)` }}
         />
       </svg>
-
-      {/* Center */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[56px] font-bold tracking-tighter leading-none fade-in" style={{ animationDelay: "0.5s" }}>
+        <span
+          className="font-bold tracking-tighter leading-none fade-in font-mono"
+          style={{ fontSize: size * 0.26, animationDelay: "0.3s", color: tier.color, textShadow: `0 0 12px ${tier.color}60` }}
+        >
           {score}
         </span>
         <span
-          className="text-[13px] font-medium mt-1.5 fade-in"
-          style={{ color: tier.color, animationDelay: "0.8s" }}
+          className="text-[11px] font-bold mt-1.5 fade-in tracking-widest"
+          style={{ color: tier.color, animationDelay: "0.5s" }}
         >
-          {tier.icon} {tier.label}
+          {tier.label.toUpperCase()}
         </span>
       </div>
     </div>

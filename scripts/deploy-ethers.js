@@ -5,6 +5,7 @@ dotenv.config();
 
 const RPC_URL = process.env.NEXT_PUBLIC_KITE_RPC_URL || "https://rpc-testnet.gokite.ai";
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63";
 
 if (!PRIVATE_KEY) {
   console.error("❌ Set DEPLOYER_PRIVATE_KEY in .env");
@@ -23,9 +24,9 @@ async function main() {
     fs.readFileSync("artifacts/contracts/PulseScore.sol/PulseScore.json", "utf8")
   );
 
-  console.log("\nDeploying PulseScore...");
+  console.log("\nDeploying PulseScore with USDC:", USDC_ADDRESS);
   const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, wallet);
-  const contract = await factory.deploy();
+  const contract = await factory.deploy(USDC_ADDRESS);
   await contract.waitForDeployment();
 
   const addr = await contract.getAddress();

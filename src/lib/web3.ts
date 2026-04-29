@@ -15,6 +15,24 @@ export const kiteTestnet = defineChain({
   },
 });
 
+/** Prompt wallet to add Kite Testnet via wallet_addEthereumChain */
+export async function addKiteNetwork(): Promise<void> {
+  const ethereum = (window as unknown as { ethereum?: { request: (args: unknown) => Promise<unknown> } }).ethereum;
+  if (!ethereum) throw new Error("No wallet detected. Install MetaMask or Rabby first.");
+  await ethereum.request({
+    method: "wallet_addEthereumChain",
+    params: [
+      {
+        chainId: `0x${kiteTestnet.id.toString(16)}`,
+        chainName: kiteTestnet.name,
+        nativeCurrency: kiteTestnet.nativeCurrency,
+        rpcUrls: ["https://rpc-testnet.gokite.ai"],
+        blockExplorerUrls: ["https://testnet.kitescan.ai"],
+      },
+    ],
+  });
+}
+
 // Kite AI Mainnet
 export const kiteMainnet = defineChain({
   id: 2366,
@@ -40,8 +58,8 @@ export const config = createConfig({
       showQrModal: true,
     }),
     coinbaseWallet({
-      appName: "KitePulse",
-      appLogoUrl: "https://kitepulse.dev/icon.png",
+      appName: "Sibyl",
+      appLogoUrl: "https://sibyl.dev/icon.png",
     }),
   ],
   transports: {
@@ -51,11 +69,82 @@ export const config = createConfig({
 });
 
 // Contract addresses
-export const PULSE_SCORE_ADDRESS = (process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x0776AF7E068E2f2E1651D358ea29Cfa068F909cd") as `0x${string}`;
+export const PULSE_SCORE_ADDRESS = (process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b") as `0x${string}`;
 export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_ADDRESS || "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63") as `0x${string}`;
 
-// PulseScore ABI (subset we need)
+// Kite testnet USDC uses 18 decimals (bridged USDC.e)
+export const USDC_DECIMALS = 18;
+
+// PulseScore ABI (focused subset for frontend)
 export const PULSE_SCORE_ABI = [
+  {
+    type: "constructor",
+    inputs: [{ name: "_usdcToken", type: "address" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "usdcToken",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "registerAgent",
+    inputs: [{ name: "_agentAddress", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "refreshSession",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "registerService",
+    inputs: [
+      { name: "_name", type: "string" },
+      { name: "_description", type: "string" },
+      { name: "_endpoint", type: "string" },
+      { name: "_price", type: "uint256" },
+      { name: "_minScore", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "requestService",
+    inputs: [{ name: "_serviceId", type: "uint256" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "settlePayment",
+    inputs: [
+      { name: "_serviceId", type: "uint256" },
+      { name: "_buyer", type: "address" },
+      { name: "_success", type: "bool" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "rateService",
+    inputs: [
+      { name: "_serviceId", type: "uint256" },
+      { name: "_score", type: "uint8" },
+      { name: "_feedback", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
   {
     type: "function",
     name: "getAgent",
@@ -72,6 +161,8 @@ export const PULSE_SCORE_ABI = [
           { name: "registeredAt", type: "uint256" },
           { name: "lastUpdated", type: "uint256" },
           { name: "exists", type: "bool" },
+          { name: "sessionBudget", type: "uint256" },
+          { name: "sessionSpent", type: "uint256" },
         ],
       },
     ],
@@ -79,9 +170,32 @@ export const PULSE_SCORE_ABI = [
   },
   {
     type: "function",
-    name: "getScore",
+    name: "getService",
+    inputs: [{ name: "_serviceId", type: "uint256" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "provider", type: "address" },
+          { name: "name", type: "string" },
+          { name: "description", type: "string" },
+          { name: "endpoint", type: "string" },
+          { name: "price", type: "uint256" },
+          { name: "minScore", type: "uint256" },
+          { name: "exists", type: "bool" },
+          { name: "totalCalls", type: "uint256" },
+          { name: "successfulCalls", type: "uint256" },
+          { name: "totalRevenue", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getAgentServices",
     inputs: [{ name: "_agent", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256[]" }],
     stateMutability: "view",
   },
   {
@@ -93,14 +207,14 @@ export const PULSE_SCORE_ABI = [
   },
   {
     type: "function",
-    name: "getTransactionCount",
+    name: "getSessionRemaining",
     inputs: [{ name: "_agent", type: "address" }],
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
   },
   {
     type: "function",
-    name: "getRecentTransactions",
+    name: "getAgentTransactions",
     inputs: [
       { name: "_agent", type: "address" },
       { name: "_count", type: "uint256" },
@@ -109,15 +223,24 @@ export const PULSE_SCORE_ABI = [
       {
         type: "tuple[]",
         components: [
-          { name: "agent", type: "address" },
-          { name: "service", type: "address" },
+          { name: "buyer", type: "address" },
+          { name: "provider", type: "address" },
+          { name: "serviceId", type: "uint256" },
           { name: "amount", type: "uint256" },
           { name: "success", type: "bool" },
           { name: "timestamp", type: "uint256" },
           { name: "scoreChange", type: "int256" },
+          { name: "x402Authorized", type: "bool" },
         ],
       },
     ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getServiceAverageRating",
+    inputs: [{ name: "_serviceId", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
   },
   {
@@ -139,22 +262,46 @@ export const PULSE_SCORE_ABI = [
   },
   {
     type: "function",
-    name: "registerAgent",
-    inputs: [{ name: "_agentAddress", type: "address" }],
-    outputs: [],
-    stateMutability: "nonpayable",
+    name: "getServiceCount",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
   },
   {
     type: "function",
-    name: "recordTransaction",
-    inputs: [
-      { name: "_agent", type: "address" },
-      { name: "_service", type: "address" },
-      { name: "_amount", type: "uint256" },
-      { name: "_success", type: "bool" },
+    name: "agents",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [
+      { name: "owner", type: "address" },
+      { name: "score", type: "uint256" },
+      { name: "totalTxns", type: "uint256" },
+      { name: "successTxns", type: "uint256" },
+      { name: "totalSpent", type: "uint256" },
+      { name: "registeredAt", type: "uint256" },
+      { name: "lastUpdated", type: "uint256" },
+      { name: "exists", type: "bool" },
+      { name: "sessionBudget", type: "uint256" },
+      { name: "sessionSpent", type: "uint256" },
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "services",
+    inputs: [{ name: "", type: "uint256" }],
+    outputs: [
+      { name: "provider", type: "address" },
+      { name: "name", type: "string" },
+      { name: "description", type: "string" },
+      { name: "endpoint", type: "string" },
+      { name: "price", type: "uint256" },
+      { name: "minScore", type: "uint256" },
+      { name: "exists", type: "bool" },
+      { name: "totalCalls", type: "uint256" },
+      { name: "successfulCalls", type: "uint256" },
+      { name: "totalRevenue", type: "uint256" },
+    ],
+    stateMutability: "view",
   },
   {
     type: "event",
@@ -162,30 +309,104 @@ export const PULSE_SCORE_ABI = [
     inputs: [
       { name: "agent", type: "address", indexed: true },
       { name: "owner", type: "address", indexed: true },
-      { name: "timestamp", type: "uint256", indexed: false },
+      { name: "budget", type: "uint256", indexed: false },
     ],
   },
   {
     type: "event",
-    name: "TransactionRecorded",
+    name: "ServiceRegistered",
     inputs: [
-      { name: "agent", type: "address", indexed: true },
-      { name: "service", type: "address", indexed: true },
+      { name: "serviceId", type: "uint256", indexed: true },
+      { name: "provider", type: "address", indexed: true },
+      { name: "name", type: "string", indexed: false },
+      { name: "price", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "PaymentSettled",
+    inputs: [
+      { name: "serviceId", type: "uint256", indexed: true },
+      { name: "buyer", type: "address", indexed: true },
+      { name: "provider", type: "address", indexed: true },
       { name: "amount", type: "uint256", indexed: false },
       { name: "success", type: "bool", indexed: false },
-      { name: "scoreChange", type: "int256", indexed: false },
+      { name: "newBuyerScore", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "ScoreUpdated",
+    inputs: [
+      { name: "agent", type: "address", indexed: true },
+      { name: "oldScore", type: "uint256", indexed: false },
       { name: "newScore", type: "uint256", indexed: false },
     ],
+  },
+  {
+    type: "event",
+    name: "ServiceRated",
+    inputs: [
+      { name: "serviceId", type: "uint256", indexed: true },
+      { name: "rater", type: "address", indexed: true },
+      { name: "score", type: "uint8", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "SessionRefreshed",
+    inputs: [
+      { name: "agent", type: "address", indexed: true },
+      { name: "newBudget", type: "uint256", indexed: false },
+    ],
+  },
+] as const;
+
+// ERC20 ABI for USDC approval
+export const ERC20_ABI = [
+  {
+    type: "function",
+    name: "approve",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "allowance",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "decimals",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+    stateMutability: "view",
   },
 ] as const;
 
 // Score tiers
 export const SCORE_TIERS = [
-  { min: 0, max: 199, label: "Unverified", color: "#636366", icon: "⚪" },
-  { min: 200, max: 399, label: "Newcomer", color: "#FF9F0A", icon: "🟠" },
-  { min: 400, max: 599, label: "Trusted", color: "#0A84FF", icon: "🔵" },
-  { min: 600, max: 799, label: "Reliable", color: "#30D158", icon: "🟢" },
-  { min: 800, max: 1000, label: "Elite", color: "#BF5AF2", icon: "🟣" },
+  { min: 0, max: 199, label: "Unverified", color: "#888888", icon: "◯" },
+  { min: 200, max: 399, label: "Newcomer", color: "#f0f000", icon: "△" },
+  { min: 400, max: 599, label: "Trusted", color: "#00d4ff", icon: "◇" },
+  { min: 600, max: 799, label: "Reliable", color: "#00ff41", icon: "☆" },
+  { min: 800, max: 1000, label: "Elite", color: "#ff0055", icon: "◆" },
 ] as const;
 
 export function getScoreTier(score: number) {

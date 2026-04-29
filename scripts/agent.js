@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * KitePulse Agent — Autonomous AI Agent on Kite Chain
+ * Sibyl Agent — Autonomous AI Agent on Kite Chain
  *
  * This script demonstrates an autonomous agent that:
  * 1. Discovers paid services via Kite Agent Passport (ksearch)
@@ -58,7 +58,7 @@ function exec(cmd) {
 // ─── Main Agent Loop ───
 
 async function main() {
-  log("🤖 KitePulse Agent starting...");
+  log("🤖 Sibyl Agent starting...");
   log(`   Mode: ${DRY_RUN ? "DRY RUN" : "LIVE"}`);
   log(`   Transactions: ${TXN_COUNT}`);
 
