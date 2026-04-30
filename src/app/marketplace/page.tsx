@@ -250,7 +250,7 @@ export default function ServiceRegistry() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="text-sm font-bold text-text-primary tracking-wide" style={{ marginBottom: "6px" }}>X402_PAYMENT_PROTOCOL</p>
               <p className="text-xs text-text-secondary" style={{ lineHeight: "1.6" }}>
-                Agent-to-agent micropayments via HTTP 402. Services return payment terms → agent authorizes → facilitator settles on-chain. Session budget: ${agent.sessionRemaining.toFixed(2)} USDC.
+                Agent-to-agent micropayments via HTTP 402. Services return payment terms → agent authorizes → facilitator settles onchain. Session budget: ${agent.sessionRemaining.toFixed(2)} USDC.
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-4" style={{ flexShrink: 0 }}>
@@ -436,7 +436,7 @@ export default function ServiceRegistry() {
             onClose={() => setShowRegisterModal(false)}
             onSuccess={() => {
               setShowRegisterModal(false);
-              setToast({ message: "Service registered on-chain. Refreshing registry...", type: "success" });
+              setToast({ message: "Service registered onchain. Refreshing registry...", type: "success" });
               reloadServices();
             }}
           />

@@ -107,7 +107,7 @@ export default function Profile() {
         <div className="text-center max-w-md fade-in">
           <div className="text-neon-green text-4xl mb-6 font-bold tracking-widest">[ AGENT ]</div>
           <h1 className="text-2xl font-bold tracking-tight mb-3">NO IDENTITY FOUND</h1>
-          <p className="text-text-secondary text-sm mb-4">Register your AA wallet on-chain to initialize reputation tracking.</p>
+          <p className="text-text-secondary text-sm mb-4">Register your AA wallet onchain to initialize reputation tracking.</p>
           <p className="text-neon-cyan text-xs font-mono mb-2 border border-neon-cyan/20 inline-block px-3 py-1.5 break-all">{aa.canonicalAddress}</p>
           <p className="text-text-tertiary text-[11px] mb-10">This is your deterministic AA wallet address. All operations are gasless.</p>
 
@@ -190,7 +190,7 @@ export default function Profile() {
               {agent.tier.label.toUpperCase()}
             </span>
             <span className="text-[11px] font-bold px-3 py-1 border border-neon-green/30 text-neon-green bg-neon-green/10">
-              [ ✓ ON-CHAIN VERIFIED ]
+              [ ✓ onchain VERIFIED ]
             </span>
             <span className="text-[11px] font-bold px-3 py-1 border border-neon-yellow/30 text-neon-yellow bg-neon-yellow/10">
               [ ⚡ GASLESS ]
@@ -211,7 +211,7 @@ export default function Profile() {
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
           <p className="text-[11px] text-text-tertiary mb-5">
-            Calculated from on-chain mechanics. Final score is capped 0–1000.
+            Calculated from onchain mechanics. Final score is capped 0–1000.
           </p>
           <div className="space-y-5">
             {scoreAttribution.map((f, i) => {
@@ -290,7 +290,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* On-Chain Record */}
+        {/* onchain Record */}
         <div className="fade-in mb-6" style={{ animationDelay: "0.6s", padding: "24px", background: "rgba(10,10,10,0.85)", border: "1px solid #222" }}>
           <div className="flex items-center gap-2 mb-5">
             <span className="text-neon-green text-xs font-bold">[</span>

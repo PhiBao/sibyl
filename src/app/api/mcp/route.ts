@@ -16,7 +16,7 @@ const PULSE_SCORE_ADDRESS = process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x02
 const TOOLS = [
   {
     name: "get_agent_status",
-    description: "Get the on-chain reputation status of an agent wallet on Kite Chain",
+    description: "Get the onchain reputation status of an agent wallet on Kite Chain",
     inputSchema: {
       type: "object" as const,
       properties: {

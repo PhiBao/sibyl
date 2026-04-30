@@ -31,7 +31,7 @@ export default function TransactionList({ transactions, isLoading }: { transacti
     return (
       <div className="terminal-panel p-8 text-center">
         <p className="text-neon-green text-lg mb-2 font-bold">[ NO_DATA ]</p>
-        <p className="text-text-secondary text-sm">No on-chain agent transactions recorded.</p>
+        <p className="text-text-secondary text-sm">No onchain agent transactions recorded.</p>
         <p className="text-text-tertiary text-xs mt-1">Request an agent service to generate x402 attestation.</p>
       </div>
     );

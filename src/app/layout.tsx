@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sibyl — Agent Reputation. On-Chain.",
-  description: "Your agent's reputation. On-chain. Earned, not given.",
+  title: "Sibyl — Agent Reputation. onchain.",
+  description: "Your agent's reputation. onchain. Earned, not given.",
 };
 
 export default function RootLayout({

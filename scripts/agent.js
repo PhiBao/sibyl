@@ -6,7 +6,7 @@
  * This script demonstrates an autonomous agent that:
  * 1. Connects to PulseScore on Kite Testnet
  * 2. Registers as an agent if not already registered
- * 3. Discovers services from the on-chain registry
+ * 3. Discovers services from the onchain registry
  * 4. Requests and settles x402 payments via gasless or direct tx
  * 5. Tracks reputation score growth
  *
@@ -77,7 +77,7 @@ async function main() {
     if (!DRY_RUN) {
       const tx = await contract.registerAgent(wallet.address);
       await tx.wait();
-      log("✅ Agent registered on-chain");
+      log("✅ Agent registered onchain");
       agent = await contract.getAgent(wallet.address);
     } else {
       log("   (dry run — would register)");
@@ -91,7 +91,7 @@ async function main() {
   // Discover services
   log("\n📡 Discovering services...");
   const serviceCount = await contract.getServiceCount();
-  log(`   ${serviceCount} services found on-chain`);
+  log(`   ${serviceCount} services found onchain`);
 
   const services = [];
   for (let i = 1; i <= Number(serviceCount); i++) {

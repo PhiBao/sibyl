@@ -220,7 +220,7 @@ export default function RegisterServiceModal({ onClose, onSuccess }: RegisterSer
                 : "border-border text-text-tertiary cursor-not-allowed"
             }`}
           >
-            {isSubmitting ? "[ CONFIRMING... ]" : "[ REGISTER ON-CHAIN ]"}
+            {isSubmitting ? "[ CONFIRMING... ]" : "[ REGISTER onchain ]"}
           </button>
           <p className="text-[10px] text-text-tertiary text-center mt-3 font-mono">
             Requires wallet signature. Gas paid in KITE.

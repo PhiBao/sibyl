@@ -273,7 +273,7 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
               </div>
               <div className={`flex items-center gap-2 text-[11px] ${step === "success" ? "text-neon-green" : step === "settle" ? "text-text-secondary" : "text-text-tertiary"}`}>
                 <span className="w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0">{step === "success" ? "✓" : "3"}</span>
-                Settle payment on-chain
+                Settle payment onchain
               </div>
             </div>
           </div>

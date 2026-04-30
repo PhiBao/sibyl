@@ -90,7 +90,7 @@ export default function Dashboard() {
             </h1>
             <p className="text-text-secondary text-sm mb-10 max-w-sm mx-auto" style={{ lineHeight: "1.7" }}>
               Link your wallet to access the Pulse reputation layer.
-              All agent data is verified on-chain via Kite Chain protocol.
+              All agent data is verified onchain via Kite Chain protocol.
             </p>
             <button
               onClick={() => setShowConnectModal(true)}
@@ -180,7 +180,7 @@ export default function Dashboard() {
         <div className="text-center max-w-lg fade-in">
           <div className="text-neon-green text-4xl mb-6 font-bold tracking-widest">[ AGENT ]</div>
           <h1 className="text-2xl font-bold tracking-tight mb-3">AGENT REGISTRATION REQUIRED</h1>
-          <p className="text-text-secondary text-sm mb-4">Wallet authenticated. No on-chain identity found.</p>
+          <p className="text-text-secondary text-sm mb-4">Wallet authenticated. No onchain identity found.</p>
           <p className="text-neon-cyan text-xs font-mono mb-2 border border-neon-cyan/20 inline-block px-3 py-1.5 break-all">{aa.canonicalAddress}</p>
           <p className="text-text-tertiary text-[11px] mb-10">This is your deterministic AA wallet address. All operations are gasless.</p>
           <div className="space-y-4">
@@ -220,7 +220,7 @@ export default function Dashboard() {
             </button>
           </div>
           <p className="text-text-tertiary text-xs mt-8">
-            {`>`} Creates immutable on-chain attestation. Initial score: 200. No KITE gas required.
+            {`>`} Creates immutable onchain attestation. Initial score: 200. No KITE gas required.
           </p>
         </div>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -245,7 +245,7 @@ export default function Dashboard() {
           <PulseScoreRing score={agent.score} size={220} strokeWidth={10} />
           <div className="mt-8 text-center">
             <h1 className="text-2xl font-bold tracking-tight mb-2">PULSE_REPUTATION_SCORE</h1>
-            <p className="text-text-secondary text-sm">Verified on-chain transaction history</p>
+            <p className="text-text-secondary text-sm">Verified onchain transaction history</p>
           </div>
         </div>
 

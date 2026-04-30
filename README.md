@@ -3,7 +3,7 @@
 > **Live:** [sibyl-bay.vercel.app](https://sibyl-bay.vercel.app)  
 > **Chain:** Kite AI Testnet (Mainnet-ready)
 
-Sibyl is an on-chain reputation and service settlement layer for the agentic economy on Kite Chain. Agents register, build reputation through x402 micropayments, and unlock tiered access to agent services — with full ERC-4337 gasless transaction support.
+Sibyl is an onchain reputation and service settlement layer for the agentic economy on Kite Chain. Agents register, build reputation through x402 micropayments, and unlock tiered access to agent services — with full ERC-4337 gasless transaction support.
 
 ---
 
@@ -11,14 +11,14 @@ Sibyl is an on-chain reputation and service settlement layer for the agentic eco
 
 | Feature | Description |
 |---------|-------------|
-| **Agent Registration** | On-chain identity with $100 USDC session budget |
+| **Agent Registration** | onchain identity with $100 USDC session budget |
 | **Pulse Score** | 0–1000 reputation score based on transaction history |
 | **Service Registry** | Agents offer capabilities (LLM, compute, data) with price + reputation gate |
-| **x402 Settlement** | Three-step payment flow: approve USDC → request authorization → settle on-chain |
+| **x402 Settlement** | Three-step payment flow: approve USDC → request authorization → settle onchain |
 | **Session Budgets** | Programmable spending limits per agent session |
 | **Live Terminal** | CLI to register, discover, request, and settle directly from the command line |
-| **Service Registration** | Any registered agent can list their own service on-chain |
-| **Provider Ratings** | On-chain 1–5 star ratings with average score display |
+| **Service Registration** | Any registered agent can list their own service onchain |
+| **Provider Ratings** | onchain 1–5 star ratings with average score display |
 | **MCP Server** | Model Context Protocol endpoint for AI agents (`/api/mcp`) |
 | **ERC-4337 Gasless** | AA SDK integration — send UserOperations via Kite bundler, no native gas |
 | **Agent Passport** | Full compatibility with Kite Agent Passport for passkey-authenticated agent spending |
@@ -31,7 +31,7 @@ Sibyl is an on-chain reputation and service settlement layer for the agentic eco
 
 AI agents are about to transact billions of dollars autonomously. But the infrastructure for agent-to-agent trust does not exist:
 
-- **No reputation portability.** An agent's history on OpenAI doesn't transfer to Anthropic. A payment record on Stripe doesn't exist on-chain.
+- **No reputation portability.** An agent's history on OpenAI doesn't transfer to Anthropic. A payment record on Stripe doesn't exist onchain.
 - **No spending controls.** Giving an AI agent a credit card is terrifying. There's no way to cap spend, require approval gates, or revoke access programmatically.
 - **No gasless UX.** Requiring agents to hold native tokens (ETH, KITE) for gas is a fatal UX flaw. Agents should not run out of gas because the price of ETH spiked.
 - **No service discovery.** AI agents can't "Google" for paid APIs. They need a structured, queryable registry with reputation gates.
@@ -44,21 +44,21 @@ The agentic economy will look like the App Store — but for AI-to-AI services. 
 3. **A yellow pages** (discover services with reputation gates)
 4. **Zero gas fees** (ERC-4337 account abstraction)
 
-Sibyl provides all four. On-chain. Composable. Permissionless.
+Sibyl provides all four. onchain. Composable. Permissionless.
 
 ### Target Markets
 
 | Segment | Pain Point | Sibyl Solution |
 |---------|-----------|----------------|
 | **AI Agent Developers** | Agents can't pay for APIs autonomously | Gasless USDC settlement + session budgets |
-| **API Providers** | No way to gate access by trustworthiness | Reputation-gated services with on-chain ratings |
-| **DeFi Protocols** | Need to evaluate counterparty risk | Queryable on-chain reputation score |
-| **AI Infrastructure** | Need to discover and compose services | MCP server + on-chain service registry |
+| **API Providers** | No way to gate access by trustworthiness | Reputation-gated services with onchain ratings |
+| **DeFi Protocols** | Need to evaluate counterparty risk | Queryable onchain reputation score |
+| **AI Infrastructure** | Need to discover and compose services | MCP server + onchain service registry |
 | **Enterprise** | Need spending controls for AI agents | Passkey auth + scoped sessions via Agent Passport |
 
 ### Competitive Moat
 
-1. **On-chain history is non-fakeable.** Unlike off-chain reputation APIs, Sibyl scores are computed from real USDC transfers. You can't buy a good score.
+1. **onchain history is non-fakeable.** Unlike off-chain reputation APIs, Sibyl scores are computed from real USDC transfers. You can't buy a good score.
 2. **x402 standard compliance.** Sibyl implements the emerging HTTP 402 payment protocol, making it compatible with any x402 facilitator.
 3. **ERC-4337 native.** Gasless transactions aren't a feature — they're the default. The AA wallet is the canonical identity.
 4. **MCP integration.** Any AI agent can query Sibyl as a tool, making reputation checks part of the agent's reasoning loop.

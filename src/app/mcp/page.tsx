@@ -7,7 +7,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 const TOOLS = [
   {
     name: "get_agent_status",
-    description: "Get the on-chain reputation status of an agent wallet on Kite Chain",
+    description: "Get the onchain reputation status of an agent wallet on Kite Chain",
     method: "POST",
     endpoint: "/api/mcp",
     example: `{
@@ -92,7 +92,7 @@ export default function McpPage() {
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
           <p className="text-text-secondary text-sm" style={{ lineHeight: "1.7" }}>
-            Sibyl exposes its on-chain reputation and service registry as AI-callable tools via the 
+            Sibyl exposes its onchain reputation and service registry as AI-callable tools via the 
             <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline"> Model Context Protocol</a>.
             Any AI agent can query agent status, discover services, and evaluate reputation gates before initiating x402 payments.
           </p>
@@ -143,7 +143,7 @@ export default function McpPage() {
             <div className="flex gap-4">
               <div className="text-neon-green font-bold text-sm mt-0.5">02</div>
               <div>
-                <p className="text-[13px] font-semibold text-text-primary mb-1">Query On-Chain Data</p>
+                <p className="text-[13px] font-semibold text-text-primary mb-1">Query onchain Data</p>
                 <p className="text-[12px] text-text-secondary">Call <code className="text-neon-cyan font-mono text-[11px]">POST /api/mcp</code> with a tool name and arguments. The server returns contract calls the AI can execute via RPC.</p>
               </div>
             </div>

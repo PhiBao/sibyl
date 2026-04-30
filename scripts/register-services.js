@@ -24,7 +24,7 @@ const contract = new ethers.Contract(CONTRACT_ADDRESS, artifact.abi, wallet);
 const services = [
   { name: "GPT-4 Turbo Inference", desc: "High-performance LLM inference via OpenAI API", endpoint: "https://api.openai.com/v1/chat/completions", price: "0.03", minScore: 0 },
   { name: "Claude 3.5 Sonnet", desc: "Anthropic Claude reasoning and coding assistant", endpoint: "https://api.anthropic.com/v1/messages", price: "0.015", minScore: 200 },
-  { name: "Real-time Price Feeds", desc: "On-chain price oracle for DeFi protocols", endpoint: "https://api.coingecko.com/api/v3/simple/price", price: "0.10", minScore: 0 },
+  { name: "Real-time Price Feeds", desc: "onchain price oracle for DeFi protocols", endpoint: "https://api.coingecko.com/api/v3/simple/price", price: "0.10", minScore: 0 },
   { name: "GPU Render (A100)", desc: "High-performance GPU compute for ML training and rendering", endpoint: "https://gpu.gokite.ai/v1/render", price: "1.20", minScore: 500 },
   { name: "Premium IPFS Pinning", desc: "Permanent decentralized storage with premium pinning", endpoint: "https://ipfs.gokite.ai/api/v0/pin", price: "0.05", minScore: 0 },
   { name: "Whisper v3 Large", desc: "State-of-the-art speech-to-text transcription", endpoint: "https://api.openai.com/v1/audio/transcriptions", price: "0.025", minScore: 0 },
@@ -68,7 +68,7 @@ async function main() {
 
   // Verify
   const count = await contract.getServiceCount();
-  console.log(`\n📊 Total services on-chain: ${count}`);
+  console.log(`\n📊 Total services onchain: ${count}`);
   console.log(`🔗 Contract: https://testnet.kitescan.ai/address/${CONTRACT_ADDRESS}`);
 }
 

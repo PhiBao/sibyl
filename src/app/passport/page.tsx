@@ -68,7 +68,7 @@ export default function PassportPage() {
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
           <p className="text-[12px] text-text-secondary leading-relaxed mb-5">
-            Sibyl enhances the Passport experience with on-chain reputation and x402 settlement.
+            Sibyl enhances the Passport experience with onchain reputation and x402 settlement.
             When your agent uses Sibyl through Passport, it benefits from:
           </p>
           <div className="space-y-4">

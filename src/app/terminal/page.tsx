@@ -173,7 +173,7 @@ export default function Terminal() {
     switch (cmd) {
       case "help":
         addLog("sys", "AVAILABLE COMMANDS:");
-        addLog("out", "  register           — Register AA wallet as agent on-chain");
+        addLog("out", "  register           — Register AA wallet as agent onchain");
         addLog("out", "  status             — Show agent score, balance, session");
         addLog("out", "  discover           — List available agent services");
         addLog("out", "  request <id>       — Request a service (x402 step 1)");
@@ -184,14 +184,14 @@ export default function Terminal() {
         addLog("out", "  refresh            — Refresh session budget");
         addLog("out", "  mcp                — Show MCP server info for AI agents");
         addLog("out", "  clear              — Clear terminal");
-        addLog("sys", "All on-chain operations are gasless ERC-4337 UserOperations.");
+        addLog("sys", "All onchain operations are gasless ERC-4337 UserOperations.");
         if (!agent?.exists) {
           addLog("sys", "TIP: Run 'register' first to create your agent identity.");
         }
         break;
 
       case "register":
-        addLog("sys", "Registering AA wallet as agent on-chain...");
+        addLog("sys", "Registering AA wallet as agent onchain...");
         try {
           const result = await aa.sendGaslessTx(
             { target: PULSE_SCORE_ADDRESS, callData: encodeRegisterAgent(canonicalAddress) },
@@ -450,7 +450,7 @@ export default function Terminal() {
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
           <p className="text-text-secondary text-sm leading-relaxed max-w-2xl">
-            Live CLI for the Kite agentic economy. All on-chain operations are gasless ERC-4337 UserOperations.
+            Live CLI for the Kite agentic economy. All onchain operations are gasless ERC-4337 UserOperations.
           </p>
           <div className="flex gap-3 mt-4">
             <button
@@ -530,7 +530,7 @@ export default function Terminal() {
               register
             </code>
             <p className="text-[11px] text-text-secondary leading-relaxed">
-              Create on-chain agent identity for your AA wallet. Grants $100 session budget.
+              Create onchain agent identity for your AA wallet. Grants $100 session budget.
             </p>
           </div>
 
