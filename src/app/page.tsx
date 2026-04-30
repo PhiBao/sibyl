@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useConnect, useWalletClient } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import PulseScoreRing from "@/components/PulseScoreRing";
 import StatCard from "@/components/StatCard";
@@ -16,10 +16,9 @@ import { encodeRegisterAgent } from "@/lib/aa-sdk";
 
 export default function Dashboard() {
   const mounted = useMounted();
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, connector } = useAccount();
   const { connect, connectors } = useConnect();
   const aa = useAAWallet();
-  const { data: walletClient } = useWalletClient();
   const agent = useAgentData(aa.canonicalAddress as `0x${string}`);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
@@ -42,8 +41,10 @@ export default function Dashboard() {
   };
 
   const signUserOp = async (userOpHash: string): Promise<string> => {
-    if (!walletClient || !address) throw new Error("Wallet not available");
-    return (walletClient as any).request({
+    if (!address) throw new Error("Wallet not available");
+    const provider = (await connector?.getProvider()) as any;
+    if (!provider) throw new Error("Wallet provider not available. Try reconnecting your wallet.");
+    return provider.request({
       method: "personal_sign",
       params: [userOpHash, address],
     });

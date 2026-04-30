@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWalletClient } from "wagmi";
+import { useAccount, useReadContract } from "wagmi";
 import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_ADDRESS, ERC20_ABI, USDC_DECIMALS, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import { useRealChainId } from "@/hooks/useRealChainId";
 import { useAAWallet } from "@/hooks/useAAWallet";
@@ -28,8 +28,7 @@ interface PurchaseModalProps {
 }
 
 export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseModalProps) {
-  const { address } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { address, connector } = useAccount();
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
   const [addingNetwork, setAddingNetwork] = useState(false);
@@ -61,8 +60,10 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
   }, []);
 
   const signUserOp = async (userOpHash: string): Promise<string> => {
-    if (!walletClient || !address) throw new Error("Wallet not available");
-    return (walletClient as any).request({
+    if (!address) throw new Error("Wallet not available");
+    const provider = (await connector?.getProvider()) as any;
+    if (!provider) throw new Error("Wallet provider not available. Try reconnecting your wallet.");
+    return provider.request({
       method: "personal_sign",
       params: [userOpHash, address],
     });

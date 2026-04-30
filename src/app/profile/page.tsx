@@ -6,7 +6,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import TransactionList from "@/components/TransactionList";
 import Toast from "@/components/Toast";
 import { useAgentData } from "@/hooks/useAgentData";
-import { useAccount, useConnect, useWalletClient } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 import { SCORE_TIERS, PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import { useMounted } from "@/hooks/useMounted";
 import { useRealChainId } from "@/hooks/useRealChainId";
@@ -15,10 +15,9 @@ import { encodeRegisterAgent } from "@/lib/aa-sdk";
 
 export default function Profile() {
   const mounted = useMounted();
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, connector } = useAccount();
   const { connect, connectors } = useConnect();
   const aa = useAAWallet();
-  const { data: walletClient } = useWalletClient();
   const agent = useAgentData(aa.canonicalAddress as `0x${string}`);
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
@@ -40,8 +39,10 @@ export default function Profile() {
   };
 
   const signUserOp = async (userOpHash: string): Promise<string> => {
-    if (!walletClient || !address) throw new Error("Wallet not available");
-    return (walletClient as any).request({
+    if (!address) throw new Error("Wallet not available");
+    const provider = (await connector?.getProvider()) as any;
+    if (!provider) throw new Error("Wallet provider not available. Try reconnecting your wallet.");
+    return provider.request({
       method: "personal_sign",
       params: [userOpHash, address],
     });

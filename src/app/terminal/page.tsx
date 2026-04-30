@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useWalletClient } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_ADDRESS, ERC20_ABI, USDC_DECIMALS, kiteTestnet, publicClient } from "@/lib/web3";
 import { useRealChainId } from "@/hooks/useRealChainId";
 import { useAAWallet } from "@/hooks/useAAWallet";
@@ -25,8 +25,7 @@ interface LogEntry {
 }
 
 export default function Terminal() {
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { address, isConnected, connector } = useAccount();
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
   const mounted = useMounted();
@@ -147,13 +146,15 @@ export default function Terminal() {
   }, [serviceCount, canonicalAddress]);
 
   const signUserOp = useCallback(async (userOpHash: string): Promise<string> => {
-    if (!walletClient || !address) throw new Error("Wallet not available");
-    const signature = await (walletClient as any).request({
+    if (!address) throw new Error("Wallet not available");
+    const provider = (await connector?.getProvider()) as any;
+    if (!provider) throw new Error("Wallet provider not available. Try reconnecting your wallet.");
+    const signature = await provider.request({
       method: "personal_sign",
       params: [userOpHash, address],
     });
     return signature;
-  }, [walletClient, address]);
+  }, [connector, address]);
 
   const handleCommand = async (cmd: string, args: string[]) => {
     if (!isConnected) {

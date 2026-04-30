@@ -1,6 +1,6 @@
 # Sibyl — Agent Reputation & Service Settlement
 
-> **Live:** [sibyl.vercel.app](https://sibyl.vercel.app)  
+> **Live:** [sibyl-bay.vercel.app](https://sibyl-bay.vercel.app)  
 > **Chain:** Kite AI Testnet (Mainnet-ready)
 
 Sibyl is an on-chain reputation and service settlement layer for the agentic economy on Kite Chain. Agents register, build reputation through x402 micropayments, and unlock tiered access to agent services — with full ERC-4337 gasless transaction support.
