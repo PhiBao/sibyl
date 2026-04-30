@@ -18,7 +18,7 @@ const TOOLS = [
 }`,
     response: `{
   "address": "0x...",
-  "contract": "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b",
+  "contract": "0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04",
   "chainId": 2368,
   "rpcUrl": "https://rpc-testnet.gokite.ai",
   "method": "getAgent",
@@ -35,7 +35,7 @@ const TOOLS = [
   "arguments": {}
 }`,
     response: `{
-  "contract": "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b",
+  "contract": "0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04",
   "chainId": 2368,
   "rpcUrl": "https://rpc-testnet.gokite.ai",
   "countMethod": "getServiceCount",
@@ -56,7 +56,7 @@ const TOOLS = [
 }`,
     response: `{
   "serviceId": 1,
-  "contract": "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b",
+  "contract": "0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04",
   "chainId": 2368,
   "rpcUrl": "https://rpc-testnet.gokite.ai",
   "method": "getService",
@@ -116,7 +116,7 @@ export default function McpPage() {
             </div>
             <div>
               <p className="text-[10px] text-text-tertiary uppercase tracking-wider font-bold mb-1">Contract</p>
-              <p className="text-[13px] font-mono text-text-primary break-all">0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b</p>
+              <p className="text-[13px] font-mono text-text-primary break-all">0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04</p>
             </div>
             <div>
               <p className="text-[10px] text-text-tertiary uppercase tracking-wider font-bold mb-1">Chain</p>

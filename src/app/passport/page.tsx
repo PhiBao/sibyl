@@ -145,19 +145,38 @@ export default function PassportPage() {
             <span className="text-xs font-bold tracking-widest text-text-secondary">ARCHITECTURE</span>
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
-          <pre className="text-[11px] font-mono text-text-secondary bg-[#0a0a0a] border border-border p-4 overflow-x-auto">
-            <code>{`┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   User Device   │────▶│  Kite Passport   │────▶│  Sibyl Agent    │
-│  (Passkey Auth) │     │  (Session Mgmt)  │     │  (Reputation)   │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                               │                          │
-                               ▼                          ▼
-                        ┌──────────────┐          ┌──────────────┐
-                        │ AA SDK /     │          │ x402         │
-                        │ Bundler      │          │ Settlement   │
-                        └──────────────┘          └──────────────┘
+          <div className="flex justify-center">
+            <pre
+              className="text-[11px] text-text-secondary bg-[#0a0a0a] border border-border p-4 overflow-x-auto"
+              style={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace", lineHeight: 1.4, whiteSpace: "pre", display: "block", margin: "0 auto" }}
+            >
+              <code>{`+-----------------+
+|   User Device   |
+|  (Passkey Auth) |
++--------+--------+
+         |
+         v
++-----------------+
+|  Kite Passport  |
+| (Session Mgmt)  |
++--------+--------+
+         |
+         v
++-----------------+
+|  Sibyl Agent    |
+|  (Reputation)   |
++--------+--------+
+         |
+    +----+----+
+    |         |
+    v         v
++--------+  +--------+
+| AA SDK |  |  x402  |
+|Bundler |  |Settle  |
++--------+  +--------+
 `}</code>
-          </pre>
+            </pre>
+          </div>
         </div>
 
       </div>

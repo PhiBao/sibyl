@@ -5,12 +5,12 @@ export default function Footer() {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-neon-green animate-pulse" />
           <span className="text-[11px] text-text-tertiary font-bold tracking-wider">
-            SIBYL v1.0.5
+            SIBYL v1.1.0
           </span>
         </div>
         <div className="flex items-center gap-4">
           <a
-            href="https://testnet.kitescan.ai/address/0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b"
+            href="https://testnet.kitescan.ai/address/0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[11px] text-text-tertiary hover:text-neon-green transition-colors"

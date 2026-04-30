@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAgentData } from "@/hooks/useAgentData";
 import { useAccount, useConnect } from "wagmi";
+import { useAAWallet } from "@/hooks/useAAWallet";
 import { getPublicClient } from "wagmi/actions";
 import PurchaseModal from "@/components/PurchaseModal";
 import RegisterServiceModal from "@/components/RegisterServiceModal";
@@ -29,22 +30,30 @@ interface OnChainService {
   category: string;
 }
 
-const CATEGORY_MAP: Record<string, string> = {
-  "GPT-4 Turbo Inference": "LLM",
-  "Claude 3.5 Sonnet": "LLM",
-  "Real-time Price Feeds": "Data",
-  "GPU Render (A100)": "Compute",
-  "Premium IPFS Pinning": "Storage",
-  "Whisper v3 Large": "Audio",
-  "DALL-E 3 HD": "Image",
-  "Stable Video Diffusion": "Video",
-};
+const CATEGORY_KEYWORDS: { keywords: string[]; category: string }[] = [
+  { keywords: ["gpt", "llm", "claude", "text", "language", "inference"], category: "LLM" },
+  { keywords: ["price", "feed", "oracle", "data", "market"], category: "Data" },
+  { keywords: ["gpu", "render", "compute", "training", "inference"], category: "Compute" },
+  { keywords: ["ipfs", "storage", "pin", "archive", "host"], category: "Storage" },
+  { keywords: ["whisper", "audio", "speech", "voice", "sound"], category: "Audio" },
+  { keywords: ["dall", "image", "diffusion", "picture", "photo"], category: "Image" },
+  { keywords: ["video", "animation", "motion"], category: "Video" },
+];
+
+function inferCategory(name: string): string {
+  const lower = name.toLowerCase();
+  for (const { keywords, category } of CATEGORY_KEYWORDS) {
+    if (keywords.some((k) => lower.includes(k))) return category;
+  }
+  return "Other";
+}
 
 export default function ServiceRegistry() {
   const mounted = useMounted();
   const { isConnected } = useAccount();
   const { connect, connectors } = useConnect();
-  const agent = useAgentData();
+  const aa = useAAWallet();
+  const agent = useAgentData(aa.canonicalAddress as `0x${string}`);
   const agentScore = agent.score;
 
   const [services, setServices] = useState<OnChainService[]>([]);
@@ -98,7 +107,7 @@ export default function ServiceRegistry() {
             successfulCalls: Number(svc.successfulCalls),
             totalRevenue: Number(svc.totalRevenue) / USDCD,
             averageRating: Number(rating) / 100,
-            category: CATEGORY_MAP[svc.name] || "Other",
+            category: inferCategory(svc.name),
           });
         } catch {
           // Skip failed reads
@@ -159,7 +168,7 @@ export default function ServiceRegistry() {
               successfulCalls: Number(svc.successfulCalls),
               totalRevenue: Number(svc.totalRevenue) / USDCD,
               averageRating: Number(rating) / 100,
-              category: CATEGORY_MAP[svc.name] || "Other",
+            category: inferCategory(svc.name),
             });
           } catch {
             // Skip failed reads
@@ -175,10 +184,10 @@ export default function ServiceRegistry() {
     loadServices();
   }, []);
 
-  const allCategories = ["All", ...Array.from(new Set(services.map((s) => CATEGORY_MAP[s.name] || "Other")))];
+  const allCategories = ["All", ...Array.from(new Set(services.map((s) => inferCategory(s.name))))];
 
   const filteredServices = services.filter((service) => {
-    const matchesCategory = activeCategory === "All" || (CATEGORY_MAP[service.name] || "Other") === activeCategory;
+    const matchesCategory = activeCategory === "All" || inferCategory(service.name) === activeCategory;
     const matchesSearch =
       service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       service.provider.toLowerCase().includes(searchQuery.toLowerCase());

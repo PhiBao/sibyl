@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import ConnectButton from "@/components/ConnectButton";
 import { useAgentData } from "@/hooks/useAgentData";
+import { useAAWallet } from "@/hooks/useAAWallet";
 
 const NAV_ITEMS = [
   { href: "/", label: "DASHBOARD" },
@@ -16,7 +17,8 @@ const NAV_ITEMS = [
 ];
 
 export default function Navbar() {
-  const { isConnected, exists, score } = useAgentData();
+  const aa = useAAWallet();
+  const { isConnected, exists, score } = useAgentData(aa.canonicalAddress as `0x${string}`);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (

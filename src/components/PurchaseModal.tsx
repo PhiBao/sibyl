@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useWalletClient } from "wagmi";
+import { useAccount, useReadContract, useWalletClient } from "wagmi";
 import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_ADDRESS, ERC20_ABI, USDC_DECIMALS, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import { useRealChainId } from "@/hooks/useRealChainId";
 import { useAAWallet } from "@/hooks/useAAWallet";
-import { encodeApproveUSDC, encodeSettlePayment } from "@/lib/aa-sdk";
+import { useAgentData } from "@/hooks/useAgentData";
+import { encodeApproveUSDC, encodeRequestService, encodeSettlePayment, encodeRefreshSession } from "@/lib/aa-sdk";
 
 const USDCD = 10 ** USDC_DECIMALS;
 const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -33,13 +34,30 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
   const [addingNetwork, setAddingNetwork] = useState(false);
   const [approveMode, setApproveMode] = useState<"exact" | "max">("exact");
-  const [gaslessTxId, setGaslessTxId] = useState<number>(0);
   const [settleInitiated, setSettleInitiated] = useState(false);
   const aa = useAAWallet();
+  const canonicalAddress = aa.canonicalAddress;
+  const ca = canonicalAddress as `0x${string}` | null;
 
-  // Reset AA status when modal opens to prevent stale success states
+  // Flow step tracking
+  const [step, setStep] = useState<"approve" | "request" | "settle" | "success">("approve");
+
+  // Agent data for session budget / interval checks
+  const agent = useAgentData(ca as `0x${string}`);
+  const sessionRemaining = agent.sessionRemaining;
+  const hasSessionBudget = sessionRemaining >= service.price;
+  const now = Math.floor(Date.now() / 1000);
+  const secondsSinceLastTxn = agent.totalTxns > 0 ? now - agent.lastUpdated : Infinity;
+  const MIN_TXN_INTERVAL = 10;
+  const canSettleDueToInterval = secondsSinceLastTxn >= MIN_TXN_INTERVAL;
+  const intervalCountdown = Math.max(0, MIN_TXN_INTERVAL - secondsSinceLastTxn);
+
+  // Reset AA status + step when modal opens
   useEffect(() => {
     aa.resetStatus();
+    setStep("approve");
+    setSettleInitiated(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signUserOp = async (userOpHash: string): Promise<string> => {
@@ -52,46 +70,34 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
 
   const priceRaw = BigInt(Math.round(service.price * USDCD));
 
-  // Check USDC balance + allowance (live, every 3s)
+  // Check USDC balance + allowance of AA wallet (live, every 3s)
   const { data: usdcBalance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
     functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 3000 },
+    args: ca ? [ca] : undefined,
+    query: { enabled: !!ca, refetchInterval: 3000 },
   });
 
   const { data: allowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
     functionName: "allowance",
-    args: address ? [address, PULSE_SCORE_ADDRESS] : undefined,
-    query: { enabled: !!address, refetchInterval: 3000 },
+    args: ca ? [ca, PULSE_SCORE_ADDRESS] : undefined,
+    query: { enabled: !!ca, refetchInterval: 3000 },
   });
 
   const hasAllowance = allowance !== undefined && allowance >= priceRaw;
   const usdcBalanceNum = usdcBalance !== undefined ? Number(usdcBalance) / USDCD : 0;
   const hasEnoughUsdc = usdcBalanceNum >= service.price;
 
-  // USDC approval
-  const {
-    writeContract: writeApprove,
-    data: approveHash,
-    isPending: isApprovePending,
-    error: approveError,
-    reset: resetApprove,
-  } = useWriteContract();
-  const { isLoading: isApproveConfirming } = useWaitForTransactionReceipt({ hash: approveHash });
-
-  // Settle payment
-  const {
-    writeContract: writeSettle,
-    data: settleHash,
-    isPending: isSettlePending,
-    error: settleError,
-    reset: resetSettle,
-  } = useWriteContract();
-  const { isLoading: isSettleConfirming, isSuccess: isSettled } = useWaitForTransactionReceipt({ hash: settleHash });
+  // Auto-advance from approve -> request when allowance confirms
+  useEffect(() => {
+    if (hasAllowance && step === "approve") {
+      setStep("request");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAllowance]);
 
   const handleAddNetwork = async () => {
     setAddingNetwork(true);
@@ -105,58 +111,62 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
   };
 
   const handleApprove = async () => {
-    if (!address) return;
-    resetSettle();
+    if (!canonicalAddress) return;
     setSettleInitiated(false);
-    if (aa.gaslessEnabled) {
-      try {
-        const txId = Date.now();
-        setGaslessTxId(txId);
-        await aa.sendGaslessTx(
-          { target: USDC_ADDRESS, callData: encodeApproveUSDC(PULSE_SCORE_ADDRESS, approveMode === "max" ? MAX_UINT256 : priceRaw) },
-          signUserOp
-        );
-      } catch {
-        // Error handled by hook
-      }
-    } else {
-      writeApprove({
-        address: USDC_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [PULSE_SCORE_ADDRESS, approveMode === "max" ? MAX_UINT256 : priceRaw],
-      });
+    try {
+      await aa.sendGaslessTx(
+        { target: USDC_ADDRESS, callData: encodeApproveUSDC(PULSE_SCORE_ADDRESS, approveMode === "max" ? MAX_UINT256 : priceRaw) },
+        signUserOp
+      );
+    } catch {
+      // Error handled by hook
+    }
+  };
+
+  const handleRequest = async () => {
+    if (!canonicalAddress) return;
+    setSettleInitiated(false);
+    try {
+      await aa.sendGaslessTx(
+        { target: PULSE_SCORE_ADDRESS, callData: encodeRequestService(BigInt(service.id), canonicalAddress) },
+        signUserOp
+      );
+      setStep("settle");
+    } catch {
+      // Error handled by hook
     }
   };
 
   const handleSettle = async () => {
-    if (!address) return;
+    if (!canonicalAddress) return;
     setSettleInitiated(true);
-    resetApprove();
-    if (aa.gaslessEnabled) {
-      try {
-        await aa.sendGaslessTx(
-          { target: PULSE_SCORE_ADDRESS, callData: encodeSettlePayment(BigInt(service.id), address, true) },
-          signUserOp
-        );
-      } catch {
-        // Error handled by hook
-      }
-    } else {
-      writeSettle({
-        address: PULSE_SCORE_ADDRESS,
-        abi: PULSE_SCORE_ABI,
-        functionName: "settlePayment",
-        args: [BigInt(service.id), address, true],
-      });
+    try {
+      await aa.sendGaslessTx(
+        { target: PULSE_SCORE_ADDRESS, callData: encodeSettlePayment(BigInt(service.id), canonicalAddress, true) },
+        signUserOp
+      );
+    } catch {
+      // Error handled by hook
     }
   };
 
-  const error = approveError || settleError || aa.lastTxError;
-  const isApproving = (isApprovePending || isApproveConfirming) || (aa.gaslessEnabled && aa.lastTxStatus === "pending" && !hasAllowance);
-  const isSettling = (isSettlePending || isSettleConfirming) || (aa.gaslessEnabled && aa.lastTxStatus === "pending" && hasAllowance);
+  const handleRefreshSession = async () => {
+    if (!canonicalAddress) return;
+    try {
+      await aa.sendGaslessTx(
+        { target: PULSE_SCORE_ADDRESS, callData: encodeRefreshSession() },
+        signUserOp
+      );
+    } catch {
+      // Error handled by hook
+    }
+  };
 
-  const showSettleSuccess = (settleInitiated && isSettled && settleHash && !isSettlePending && !isSettleConfirming) || (aa.gaslessEnabled && aa.lastTxStatus === "success" && aa.lastTxHash);
+  const error = aa.lastTxError;
+  const isApproving = aa.lastTxStatus === "pending" && step === "approve";
+  const isRequesting = aa.lastTxStatus === "pending" && step === "request";
+  const isSettling = aa.lastTxStatus === "pending" && step === "settle";
+  const showSettleSuccess = settleInitiated && step === "settle" && aa.lastTxStatus === "success" && aa.lastTxHash;
 
   if (showSettleSuccess) {
     return (
@@ -220,6 +230,10 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
             <p className="text-[10px] text-text-tertiary uppercase tracking-wider font-bold mb-3">WALLET_STATUS</p>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[11px]">
+                <span className="text-text-secondary">AA Wallet</span>
+                <span className="font-mono text-neon-cyan">{canonicalAddress ? `${canonicalAddress.slice(0, 10)}...${canonicalAddress.slice(-8)}` : "Loading..."}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
                 <span className="text-text-secondary">USDC Balance</span>
                 <span className={`font-mono font-bold ${usdcBalanceNum >= service.price ? "text-neon-green" : "text-danger"}`}>
                   ${usdcBalanceNum.toFixed(4)}
@@ -235,44 +249,29 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
                   {hasAllowance ? "SUFFICIENT" : "NONE"}
                 </span>
               </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-text-secondary">Session Budget</span>
+                <span className={`font-mono font-bold ${hasSessionBudget ? "text-neon-green" : "text-danger"}`}>
+                  ${sessionRemaining.toFixed(2)} / ${agent.sessionBudget.toFixed(0)}
+                </span>
+              </div>
             </div>
           </div>
-
-          {/* Gasless Toggle */}
-          {aa.aaAddress && (
-            <div className="border border-border p-4 mb-5 bg-surface-raised">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider font-bold mb-1">ERC-4337 GASLESS</p>
-                  <p className="text-[11px] font-mono text-neon-cyan">{aa.aaAddress.slice(0, 10)}...{aa.aaAddress.slice(-8)}</p>
-                </div>
-                <button
-                  onClick={aa.toggleGasless}
-                  className={`px-3 py-1.5 text-[10px] font-bold tracking-wider border transition-all ${
-                    aa.gaslessEnabled
-                      ? "border-neon-green/50 bg-neon-green/10 text-neon-green"
-                      : "border-border text-text-tertiary hover:text-text-secondary"
-                  }`}
-                >
-                  {aa.gaslessEnabled ? "⚡ ON" : "OFF"}
-                </button>
-              </div>
-              {aa.gaslessEnabled && (
-                <p className="text-[10px] text-text-tertiary mt-2">No KITE gas required. UserOp via Kite bundler.</p>
-              )}
-            </div>
-          )}
 
           {/* x402 Flow Steps */}
           <div className="border border-border p-4 mb-5 bg-surface-raised">
             <p className="text-[10px] text-text-tertiary uppercase tracking-wider font-bold mb-3">x402 FLOW</p>
             <div className="space-y-2">
-              <div className={`flex items-center gap-2 text-[11px] ${hasAllowance ? "text-neon-green" : "text-text-secondary"}`}>
-                <span className="w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0">{hasAllowance ? "✓" : "1"}</span>
+              <div className={`flex items-center gap-2 text-[11px] ${step !== "approve" ? "text-neon-green" : "text-text-secondary"}`}>
+                <span className="w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0">{step !== "approve" ? "✓" : "1"}</span>
                 Approve USDC spend
               </div>
-              <div className={`flex items-center gap-2 text-[11px] ${hasAllowance ? "text-text-secondary" : "text-text-tertiary"}`}>
-                <span className="w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
+              <div className={`flex items-center gap-2 text-[11px] ${step === "settle" || step === "success" ? "text-neon-green" : step === "request" ? "text-text-secondary" : "text-text-tertiary"}`}>
+                <span className="w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0">{step === "settle" || step === "success" ? "✓" : "2"}</span>
+                Request service authorization
+              </div>
+              <div className={`flex items-center gap-2 text-[11px] ${step === "success" ? "text-neon-green" : step === "settle" ? "text-text-secondary" : "text-text-tertiary"}`}>
+                <span className="w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0">{step === "success" ? "✓" : "3"}</span>
                 Settle payment on-chain
               </div>
             </div>
@@ -283,7 +282,10 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
             <div className="mb-5 border-2 border-danger bg-danger/10 p-4">
               <p className="text-[13px] text-danger font-bold tracking-wider mb-2">[ INSUFFICIENT USDC ]</p>
               <p className="text-[12px] text-text-secondary mb-3">
-                Balance: <span className="text-danger font-mono font-bold">${usdcBalanceNum.toFixed(4)}</span> USDC. Need <span className="text-neon-cyan font-mono font-bold">${service.price.toFixed(4)}</span> USDC.
+                AA Wallet Balance: <span className="text-danger font-mono font-bold">${usdcBalanceNum.toFixed(4)}</span> USDC. Need <span className="text-neon-cyan font-mono font-bold">${service.price.toFixed(4)}</span> USDC.
+              </p>
+              <p className="text-[11px] text-text-secondary mb-3">
+                Fund your AA wallet from the header dropdown or faucet.
               </p>
               <a
                 href="/faucet"
@@ -292,6 +294,31 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
               >
                 [ GET TEST USDC ]
               </a>
+            </div>
+          )}
+
+          {!isWrongChain && !hasSessionBudget && (
+            <div className="mb-5 border-2 border-danger bg-danger/10 p-4">
+              <p className="text-[13px] text-danger font-bold tracking-wider mb-2">[ SESSION BUDGET EXHAUSTED ]</p>
+              <p className="text-[12px] text-text-secondary mb-3">
+                Session spent: <span className="text-danger font-mono font-bold">${agent.sessionSpent.toFixed(2)}</span> / <span className="text-neon-green font-mono font-bold">${agent.sessionBudget.toFixed(0)}</span> USDC.
+              </p>
+              <button
+                onClick={handleRefreshSession}
+                disabled={aa.lastTxStatus === "pending"}
+                className="px-3 py-1.5 text-[11px] font-bold tracking-wider border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/20 transition-all disabled:opacity-50"
+              >
+                {aa.lastTxStatus === "pending" ? "REFRESHING..." : "[ REFRESH SESSION ]"}
+              </button>
+            </div>
+          )}
+
+          {!isWrongChain && !canSettleDueToInterval && agent.totalTxns > 0 && (
+            <div className="mb-5 border-2 border-neon-yellow bg-neon-yellow/10 p-4">
+              <p className="text-[13px] text-neon-yellow font-bold tracking-wider mb-2">[ RATE LIMIT ]</p>
+              <p className="text-[12px] text-text-secondary">
+                MIN_TXN_INTERVAL active. Wait <span className="text-neon-yellow font-mono font-bold">{intervalCountdown}s</span> before next settlement.
+              </p>
             </div>
           )}
 
@@ -313,12 +340,12 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
 
           {error && (
             <div className="mb-5 p-3 border border-danger/30 bg-danger/10 text-[11px] text-danger">
-              {typeof error === "string" ? error.slice(0, 200) : error.message?.slice(0, 200) ?? String(error).slice(0, 200)}
+              {String(error).slice(0, 280)}
             </div>
           )}
 
           {/* Approve Mode Toggle */}
-          {!hasAllowance && (
+          {step === "approve" && (
             <div className="flex items-center gap-2 mb-4">
               <button
                 onClick={() => setApproveMode("exact")}
@@ -344,41 +371,62 @@ export default function PurchaseModal({ service, onClose, onSuccess }: PurchaseM
           )}
 
           {/* Action Button */}
-          {hasAllowance ? (
-            <button
-              onClick={handleSettle}
-              disabled={isSettling || isWrongChain || !hasEnoughUsdc}
-              className={`w-full py-2.5 text-sm rounded-sm disabled:opacity-40 flex items-center justify-center gap-2 font-bold tracking-wider transition-all ${
-                isWrongChain || !hasEnoughUsdc
-                  ? "border border-danger/40 text-danger/60 cursor-not-allowed"
-                  : "neon-btn-primary"
-              }`}
-            >
-              {isSettling && <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />}
-              {!hasEnoughUsdc ? "[ INSUFFICIENT USDC ]"
-                : isWrongChain ? "[ SWITCH TO KITE TESTNET ]"
-                : isSettlePending ? "AWAITING SIGNATURE..."
-                : isSettleConfirming ? "BROADCASTING..."
-                : "[ SETTLE X402 PAYMENT ]"}
-            </button>
-          ) : (
+          {step === "approve" && (
             <button
               onClick={handleApprove}
-              disabled={isApproving || isWrongChain || !hasEnoughUsdc}
+              disabled={isApproving || isWrongChain || !hasEnoughUsdc || !hasSessionBudget || !canSettleDueToInterval}
               className={`w-full py-2.5 text-sm rounded-sm disabled:opacity-40 flex items-center justify-center gap-2 font-bold tracking-wider transition-all ${
-                isWrongChain || !hasEnoughUsdc
+                isWrongChain || !hasEnoughUsdc || !hasSessionBudget || !canSettleDueToInterval
                   ? "border border-danger/40 text-danger/60 cursor-not-allowed"
                   : "neon-btn-primary"
               }`}
             >
               {isApproving && <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />}
               {!hasEnoughUsdc ? "[ INSUFFICIENT USDC ]"
+                : !hasSessionBudget ? "[ SESSION EXHAUSTED ]"
+                : !canSettleDueToInterval ? `[ WAIT ${intervalCountdown}s ]`
                 : isWrongChain ? "[ SWITCH TO KITE TESTNET ]"
-                : isApprovePending ? "AWAITING SIGNATURE..."
-                : isApproveConfirming ? "BROADCASTING APPROVAL..."
                 : approveMode === "max"
                   ? "[ APPROVE MAX USDC ]"
                   : `[ APPROVE ${service.price} USDC ]`}
+            </button>
+          )}
+
+          {step === "request" && (
+            <button
+              onClick={handleRequest}
+              disabled={isRequesting || isWrongChain || !hasEnoughUsdc || !hasSessionBudget || !canSettleDueToInterval}
+              className={`w-full py-2.5 text-sm rounded-sm disabled:opacity-40 flex items-center justify-center gap-2 font-bold tracking-wider transition-all ${
+                isWrongChain || !hasEnoughUsdc || !hasSessionBudget || !canSettleDueToInterval
+                  ? "border border-danger/40 text-danger/60 cursor-not-allowed"
+                  : "neon-btn-primary"
+              }`}
+            >
+              {isRequesting && <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />}
+              {!hasEnoughUsdc ? "[ INSUFFICIENT USDC ]"
+                : !hasSessionBudget ? "[ SESSION EXHAUSTED ]"
+                : !canSettleDueToInterval ? `[ WAIT ${intervalCountdown}s ]`
+                : isWrongChain ? "[ SWITCH TO KITE TESTNET ]"
+                : "[ REQUEST SERVICE ]"}
+            </button>
+          )}
+
+          {step === "settle" && (
+            <button
+              onClick={handleSettle}
+              disabled={isSettling || isWrongChain || !hasEnoughUsdc || !hasSessionBudget || !canSettleDueToInterval}
+              className={`w-full py-2.5 text-sm rounded-sm disabled:opacity-40 flex items-center justify-center gap-2 font-bold tracking-wider transition-all ${
+                isWrongChain || !hasEnoughUsdc || !hasSessionBudget || !canSettleDueToInterval
+                  ? "border border-danger/40 text-danger/60 cursor-not-allowed"
+                  : "neon-btn-primary"
+              }`}
+            >
+              {isSettling && <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />}
+              {!hasEnoughUsdc ? "[ INSUFFICIENT USDC ]"
+                : !hasSessionBudget ? "[ SESSION EXHAUSTED ]"
+                : !canSettleDueToInterval ? `[ WAIT ${intervalCountdown}s ]`
+                : isWrongChain ? "[ SWITCH TO KITE TESTNET ]"
+                : "[ SETTLE X402 PAYMENT ]"}
             </button>
           )}
 

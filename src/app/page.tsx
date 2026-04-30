@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import PulseScoreRing from "@/components/PulseScoreRing";
 import StatCard from "@/components/StatCard";
@@ -11,29 +11,22 @@ import Toast from "@/components/Toast";
 import { useAgentData } from "@/hooks/useAgentData";
 import { useMounted } from "@/hooks/useMounted";
 import { useRealChainId } from "@/hooks/useRealChainId";
+import { useAAWallet } from "@/hooks/useAAWallet";
+import { encodeRegisterAgent } from "@/lib/aa-sdk";
 
 export default function Dashboard() {
   const mounted = useMounted();
   const { isConnected, address } = useAccount();
   const { connect, connectors } = useConnect();
-  const agent = useAgentData();
+  const aa = useAAWallet();
+  const { data: walletClient } = useWalletClient();
+  const agent = useAgentData(aa.canonicalAddress as `0x${string}`);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [addingNetwork, setAddingNetwork] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
-
-  const { writeContract, data: txHash, isPending: isRegistering } = useWriteContract({
-    mutation: {
-      onError: (err) => {
-        setToast({ message: err.message.slice(0, 120), type: "error" });
-      },
-      onSuccess: () => {
-        setToast({ message: "Registration submitted — awaiting confirmation", type: "success" });
-      },
-    },
-  });
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   const handleAddNetwork = async () => {
     setAddingNetwork(true);
@@ -48,14 +41,33 @@ export default function Dashboard() {
     }
   };
 
-  const handleRegister = () => {
-    if (!address) return;
-    writeContract({
-      address: PULSE_SCORE_ADDRESS,
-      abi: PULSE_SCORE_ABI,
-      functionName: "registerAgent",
-      args: [address],
+  const signUserOp = async (userOpHash: string): Promise<string> => {
+    if (!walletClient || !address) throw new Error("Wallet not available");
+    return (walletClient as any).request({
+      method: "personal_sign",
+      params: [userOpHash, address],
     });
+  };
+
+  const handleRegister = async () => {
+    if (!aa.canonicalAddress) return;
+    setRegistering(true);
+    try {
+      const result = await aa.sendGaslessTx(
+        { target: PULSE_SCORE_ADDRESS, callData: encodeRegisterAgent(aa.canonicalAddress) },
+        signUserOp
+      );
+      if (result.status === "success") {
+        setToast({ message: "AA wallet registered as agent — gasless UserOp confirmed", type: "success" });
+      } else {
+        setToast({ message: "Registration UserOp failed — check AA wallet funding", type: "error" });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToast({ message: msg.slice(0, 120), type: "error" });
+    } finally {
+      setRegistering(false);
+    }
   };
 
   if (!mounted) {
@@ -153,6 +165,10 @@ export default function Dashboard() {
     );
   }
 
+  if (aa.isLoading) {
+    return <LoadingSpinner text="COMPUTING AA WALLET..." />;
+  }
+
   if (agent.isLoading) {
     return <LoadingSpinner text="FETCHING AGENT DATA..." />;
   }
@@ -163,64 +179,47 @@ export default function Dashboard() {
         <div className="text-center max-w-lg fade-in">
           <div className="text-neon-green text-4xl mb-6 font-bold tracking-widest">[ AGENT ]</div>
           <h1 className="text-2xl font-bold tracking-tight mb-3">AGENT REGISTRATION REQUIRED</h1>
-          <p className="text-text-secondary text-sm mb-3">Wallet authenticated. No on-chain identity found.</p>
-          <p className="text-neon-green text-xs font-mono mb-10 border border-neon-green/20 inline-block px-3 py-1.5">{address}</p>
-          {isConfirmed ? (
-            <div className="space-y-5">
-              <div className="text-neon-green text-sm font-bold border border-neon-green/30 inline-block px-4 py-2">
-                [ ✓ REGISTRATION SUCCESSFUL ]
-              </div>
-              <div>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="neon-btn-primary px-6 py-2.5 text-sm rounded-sm"
-                >
-                  [ LOAD DASHBOARD ]
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {isWrongChain && (
-                <div className="border-2 border-danger bg-danger/10 px-5 py-4">
-                  <p className="text-[13px] text-danger font-bold tracking-wider mb-2">
-                    [ WRONG NETWORK ]
-                  </p>
-                  <p className="text-[12px] text-text-secondary mb-3">
-                     Wallet is on chain <span className="text-danger font-mono font-bold">{realChainId ?? "?"}</span>. Switch to <span className="text-neon-green font-mono font-bold">Kite Testnet (ID: {kiteTestnet.id})</span> in your wallet to register.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleAddNetwork}
-                      disabled={addingNetwork}
-                      className="px-3 py-1.5 text-[11px] font-bold tracking-wider border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/20 transition-all disabled:opacity-50"
-                    >
-                      {addingNetwork ? "ADDING..." : "[ + ADD KITE TESTNET ]"}
-                    </button>
-                  </div>
+          <p className="text-text-secondary text-sm mb-4">Wallet authenticated. No on-chain identity found.</p>
+          <p className="text-neon-cyan text-xs font-mono mb-2 border border-neon-cyan/20 inline-block px-3 py-1.5 break-all">{aa.canonicalAddress}</p>
+          <p className="text-text-tertiary text-[11px] mb-10">This is your deterministic AA wallet address. All operations are gasless.</p>
+          <div className="space-y-4">
+            {isWrongChain && (
+              <div className="border-2 border-danger bg-danger/10 px-5 py-4">
+                <p className="text-[13px] text-danger font-bold tracking-wider mb-2">
+                  [ WRONG NETWORK ]
+                </p>
+                <p className="text-[12px] text-text-secondary mb-3">
+                  Wallet is on chain <span className="text-danger font-mono font-bold">{realChainId ?? "?"}</span>. Switch to <span className="text-neon-green font-mono font-bold">Kite Testnet (ID: {kiteTestnet.id})</span>.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAddNetwork}
+                    disabled={addingNetwork}
+                    className="px-3 py-1.5 text-[11px] font-bold tracking-wider border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/20 transition-all disabled:opacity-50"
+                  >
+                    {addingNetwork ? "ADDING..." : "[ + ADD KITE TESTNET ]"}
+                  </button>
                 </div>
-              )}
-              <button
-                onClick={handleRegister}
-                disabled={isRegistering || isConfirming || isWrongChain}
-                className={`px-8 py-3 text-sm rounded-sm disabled:opacity-40 font-bold tracking-wider transition-all ${
-                  isWrongChain
-                    ? "border border-danger/40 text-danger/60 cursor-not-allowed"
-                    : "neon-btn-primary"
-                }`}
-              >
-                {isWrongChain
-                  ? "[ SWITCH TO KITE TESTNET ]"
-                  : isRegistering
-                    ? "AWAITING SIGNATURE..."
-                    : isConfirming
-                      ? "BROADCASTING TX..."
-                      : "[ REGISTER ON KITE CHAIN ]"}
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+            <button
+              onClick={handleRegister}
+              disabled={registering || isWrongChain}
+              className={`px-8 py-3 text-sm rounded-sm disabled:opacity-40 font-bold tracking-wider transition-all ${
+                isWrongChain
+                  ? "border border-danger/40 text-danger/60 cursor-not-allowed"
+                  : "neon-btn-primary"
+              }`}
+            >
+              {isWrongChain
+                ? "[ SWITCH TO KITE TESTNET ]"
+                : registering
+                  ? "BUNDLING USEROP..."
+                  : "[ REGISTER AA WALLET ]"}
+            </button>
+          </div>
           <p className="text-text-tertiary text-xs mt-8">
-            {`>`} Creates immutable on-chain attestation. Initial score: 200.
+            {`>`} Creates immutable on-chain attestation. Initial score: 200. No KITE gas required.
           </p>
         </div>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -270,7 +269,8 @@ export default function Dashboard() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-semibold text-text-primary">AGENT_NODE</p>
-              <p className="text-[11px] text-neon-green font-mono truncate">{address}</p>
+              <p className="text-[11px] text-neon-cyan font-mono truncate">{aa.canonicalAddress}</p>
+              <p className="text-[10px] text-text-tertiary font-mono">Signer: {address}</p>
             </div>
             <div className="flex items-center gap-6 sm:ml-auto">
               <div>

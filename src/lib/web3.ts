@@ -1,5 +1,5 @@
 import { createConfig, http } from "wagmi";
-import { defineChain } from "viem";
+import { createPublicClient, defineChain, http as viemHttp } from "viem";
 import { metaMask, walletConnect, coinbaseWallet } from "wagmi/connectors";
 
 // Kite AI Testnet
@@ -69,7 +69,7 @@ export const config = createConfig({
 });
 
 // Contract addresses
-export const PULSE_SCORE_ADDRESS = (process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b") as `0x${string}`;
+export const PULSE_SCORE_ADDRESS = (process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04") as `0x${string}`;
 export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_ADDRESS || "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63") as `0x${string}`;
 
 // Kite testnet USDC uses 18 decimals (bridged USDC.e)
@@ -105,6 +105,30 @@ export const PULSE_SCORE_ABI = [
   },
   {
     type: "function",
+    name: "addDelegate",
+    inputs: [{ name: "delegate", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "removeDelegate",
+    inputs: [{ name: "delegate", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "delegates",
+    inputs: [
+      { name: "", type: "address" },
+      { name: "", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "registerService",
     inputs: [
       { name: "_name", type: "string" },
@@ -119,7 +143,10 @@ export const PULSE_SCORE_ABI = [
   {
     type: "function",
     name: "requestService",
-    inputs: [{ name: "_serviceId", type: "uint256" }],
+    inputs: [
+      { name: "_serviceId", type: "uint256" },
+      { name: "_buyer", type: "address" },
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -362,13 +389,23 @@ export const PULSE_SCORE_ABI = [
   },
 ] as const;
 
-// ERC20 ABI for USDC approval
+// ERC20 ABI for USDC approval and transfer
 export const ERC20_ABI = [
   {
     type: "function",
     name: "approve",
     inputs: [
       { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "transfer",
+    inputs: [
+      { name: "to", type: "address" },
       { name: "amount", type: "uint256" },
     ],
     outputs: [{ name: "", type: "bool" }],
@@ -412,3 +449,9 @@ export const SCORE_TIERS = [
 export function getScoreTier(score: number) {
   return SCORE_TIERS.find((t) => score >= t.min && score <= t.max) ?? SCORE_TIERS[0];
 }
+
+// Public client for direct chain reads (no wagmi hook needed)
+export const publicClient = createPublicClient({
+  chain: kiteTestnet,
+  transport: viemHttp("https://rpc-testnet.gokite.ai"),
+});

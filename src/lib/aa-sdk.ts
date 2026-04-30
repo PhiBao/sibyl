@@ -16,6 +16,9 @@ export interface GaslessTxRequest {
 export interface BuildUserOpResponse {
   userOp: Record<string, unknown>;
   hash: string;
+  mode?: "sponsored" | "token";
+  estimationFailed?: boolean;
+  estimationError?: string;
 }
 
 export async function getAAWalletAddress(eoaAddress: string): Promise<string> {
@@ -65,9 +68,9 @@ export function encodeRegisterAgent(address: string): string {
   return iface.encodeFunctionData("registerAgent", [address]);
 }
 
-export function encodeRequestService(serviceId: bigint): string {
+export function encodeRequestService(serviceId: bigint, buyer: string): string {
   const iface = new ethers.Interface(PULSE_SCORE_ABI as ethers.InterfaceAbi);
-  return iface.encodeFunctionData("requestService", [serviceId]);
+  return iface.encodeFunctionData("requestService", [serviceId, buyer]);
 }
 
 export function encodeSettlePayment(serviceId: bigint, buyer: string, success: boolean): string {

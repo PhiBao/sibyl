@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useWalletClient } from "wagmi";
-import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_ADDRESS, ERC20_ABI, USDC_DECIMALS, kiteTestnet } from "@/lib/web3";
+import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_ADDRESS, ERC20_ABI, USDC_DECIMALS, kiteTestnet, publicClient } from "@/lib/web3";
 import { useRealChainId } from "@/hooks/useRealChainId";
 import { useAAWallet } from "@/hooks/useAAWallet";
+import { useMounted } from "@/hooks/useMounted";
 import AAWalletPanel from "@/components/AAWalletPanel";
 import {
   encodeRegisterAgent,
@@ -28,54 +29,43 @@ export default function Terminal() {
   const { data: walletClient } = useWalletClient();
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
+  const mounted = useMounted();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [input, setInput] = useState("");
-  const [running] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Bulletproof unique ID generator for log entries
   const nextLogId = useCallback(() => {
     return `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   }, []);
 
   const aa = useAAWallet();
+  const canonicalAddress = aa.canonicalAddress;
 
-  // Contract reads
-  const { data: agent } = useReadContract({
+  // Contract reads — always against canonical (AA) address
+  const ca = canonicalAddress as `0x${string}` | null;
+  const { data: agent, refetch: refetchAgent } = useReadContract({
     address: PULSE_SCORE_ADDRESS,
     abi: PULSE_SCORE_ABI,
     functionName: "getAgent",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: ca ? [ca] : undefined,
+    query: { enabled: !!ca },
   });
   const { data: serviceCount } = useReadContract({
     address: PULSE_SCORE_ADDRESS,
     abi: PULSE_SCORE_ABI,
     functionName: "getServiceCount",
   });
-  const { data: sessionRemaining } = useReadContract({
+  const { data: sessionRemaining, refetch: refetchSession } = useReadContract({
     address: PULSE_SCORE_ADDRESS,
     abi: PULSE_SCORE_ABI,
     functionName: "getSessionRemaining",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: ca ? [ca] : undefined,
+    query: { enabled: !!ca },
   });
 
-  // Writes (fallback when gasless is off)
-  const { writeContract: writeRegister, data: regHash, isPending: regPending, error: regError } = useWriteContract();
-  const { isLoading: regConfirming } = useWaitForTransactionReceipt({ hash: regHash });
-
-  const { writeContract: writeRefresh, data: refHash, isPending: refPending } = useWriteContract();
-  const { isLoading: refConfirming } = useWaitForTransactionReceipt({ hash: refHash });
-
-  const { writeContract: writeRequest, data: reqHash, isPending: reqPending } = useWriteContract();
-  const { isLoading: reqConfirming } = useWaitForTransactionReceipt({ hash: reqHash });
-
-  const { writeContract: writeSettle, data: setHash, isPending: setPending } = useWriteContract();
-  const { isLoading: setConfirming } = useWaitForTransactionReceipt({ hash: setHash });
-
-  const { writeContract: writeApprove, data: appHash, isPending: appPending } = useWriteContract();
-  const { isLoading: appConfirming } = useWaitForTransactionReceipt({ hash: appHash });
+  // Only normal tx hook left: fund-aa (EOA → AA wallet USDC transfer)
+  const { writeContract: writeTransfer, data: xferHash, isPending: xferPending } = useWriteContract();
+  const { isLoading: xferConfirming } = useWaitForTransactionReceipt({ hash: xferHash });
 
   const addLog = useCallback((type: LogEntry["type"], text: string) => {
     setLogs((prev) => [...prev, {
@@ -100,51 +90,64 @@ export default function Terminal() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Respond to tx confirmations
-  useEffect(() => {
-    if (regHash && !regPending && !regConfirming) addLog("tx", `Agent registered. Tx: ${regHash.slice(0, 10)}...`);
-  }, [regHash, regPending, regConfirming, addLog]);
-  useEffect(() => {
-    if (refHash && !refPending && !refConfirming) addLog("tx", `Session refreshed. Tx: ${refHash.slice(0, 10)}...`);
-  }, [refHash, refPending, refConfirming, addLog]);
-  useEffect(() => {
-    if (reqHash && !reqPending && !reqConfirming) addLog("tx", `Service requested. Tx: ${reqHash.slice(0, 10)}...`);
-  }, [reqHash, reqPending, reqConfirming, addLog]);
-  useEffect(() => {
-    if (setHash && !setPending && !setConfirming) addLog("tx", `Payment settled. Tx: ${setHash.slice(0, 10)}...`);
-  }, [setHash, setPending, setConfirming, addLog]);
-  useEffect(() => {
-    if (appHash && !appPending && !appConfirming) addLog("tx", `USDC approved. Tx: ${appHash.slice(0, 10)}...`);
-  }, [appHash, appPending, appConfirming, addLog]);
-  useEffect(() => {
-    if (regError) addLog("err", regError.message.slice(0, 120));
-  }, [regError, addLog]);
-
   // Gasless tx status
   useEffect(() => {
     if (aa.lastTxStatus === "success" && aa.lastTxHash) {
       addLog("tx", `Gasless tx confirmed. Hash: ${aa.lastTxHash.slice(0, 10)}...`);
+      refetchAgent();
+      refetchSession();
       aa.resetStatus();
     }
     if (aa.lastTxStatus === "error" && aa.lastTxError) {
       addLog("err", `Gasless failed: ${aa.lastTxError.slice(0, 120)}`);
       aa.resetStatus();
     }
-  }, [aa.lastTxStatus, aa.lastTxHash, aa.lastTxError, addLog, aa]);
+  }, [aa.lastTxStatus, aa.lastTxHash, aa.lastTxError, addLog, aa, refetchAgent, refetchSession]);
+
+  useEffect(() => {
+    if (xferHash && !xferPending && !xferConfirming) addLog("tx", `USDC transferred to AA. Tx: ${xferHash.slice(0, 10)}...`);
+  }, [xferHash, xferPending, xferConfirming, addLog]);
 
   const getServices = useCallback(async () => {
     if (!serviceCount) return [];
     const count = Number(serviceCount);
-    return Array.from({ length: count }, (_, i) => ({
-      id: i + 1,
-      name: `Service #${i + 1}`,
-    }));
-  }, [serviceCount]);
+    try {
+      const calls = Array.from({ length: count }, (_, i) => ({
+        address: PULSE_SCORE_ADDRESS,
+        abi: PULSE_SCORE_ABI,
+        functionName: "getService" as const,
+        args: [BigInt(i + 1)],
+      }));
+      const results = await publicClient.multicall({ contracts: calls });
+      const services = results
+        .map((res, i) => {
+          if (res.status !== "success") return null;
+          const s = res.result as any;
+          return {
+            id: i + 1,
+            name: s.name as string,
+            provider: (s.provider as string).toLowerCase(),
+            price: BigInt(s.price),
+            minScore: Number(s.minScore),
+          };
+        })
+        .filter(Boolean) as { id: number; name: string; provider: string; price: bigint; minScore: number }[];
+      // Filter out user's own services (can't request self)
+      const ownAddr = canonicalAddress?.toLowerCase() || "";
+      return services.filter((s) => s.provider !== ownAddr);
+    } catch {
+      return Array.from({ length: count }, (_, i) => ({
+        id: i + 1,
+        name: `Service #${i + 1}`,
+        provider: "",
+        price: 0n,
+        minScore: 0,
+      }));
+    }
+  }, [serviceCount, canonicalAddress]);
 
   const signUserOp = useCallback(async (userOpHash: string): Promise<string> => {
     if (!walletClient || !address) throw new Error("Wallet not available");
-    // Use personal_sign so the wallet applies the Ethereum message prefix
-    // This matches what ethers.signMessage(bytes) does in the SDK example
     const signature = await (walletClient as any).request({
       method: "personal_sign",
       params: [userOpHash, address],
@@ -161,54 +164,55 @@ export default function Terminal() {
       addLog("err", `Wrong network. Switch to Kite Testnet (ID: ${kiteTestnet.id}).`);
       return;
     }
+    if (!canonicalAddress) {
+      addLog("err", "AA wallet not ready. Wait a moment and retry.");
+      return;
+    }
 
     switch (cmd) {
       case "help":
         addLog("sys", "AVAILABLE COMMANDS:");
-        addLog("out", "  register           — Register agent on-chain");
+        addLog("out", "  register           — Register AA wallet as agent on-chain");
         addLog("out", "  status             — Show agent score, balance, session");
         addLog("out", "  discover           — List available agent services");
         addLog("out", "  request <id>       — Request a service (x402 step 1)");
         addLog("out", "  settle <id>        — Settle payment (x402 step 2)");
-        addLog("out", "  approve <amount>   — Approve exact USDC spend");
-        addLog("out", "  approve max        — Approve unlimited USDC (1 sig for all future)");
+        addLog("out", "  approve <amount>   — Approve USDC for PulseScore from AA wallet");
+        addLog("out", "  approve max        — Approve unlimited USDC for PulseScore");
+        addLog("out", "  fund-aa <amount>   — Send USDC from EOA to AA wallet");
         addLog("out", "  refresh            — Refresh session budget");
         addLog("out", "  mcp                — Show MCP server info for AI agents");
-        addLog("out", "  gasless            — Toggle ERC-4337 gasless mode");
         addLog("out", "  clear              — Clear terminal");
-        if (aa.gaslessEnabled) {
-          addLog("sys", "GASLESS MODE: ON — ERC-4337 UserOperations via Kite bundler");
-          addLog("sys", "You still sign with your wallet, but no native KITE gas is needed.");
-        } else {
-          addLog("sys", "GASLESS MODE: OFF — Standard transactions (requires KITE gas)");
-          addLog("sys", "TIP: Type 'gasless' to enable gasless mode.");
-        }
-        break;
-
-      case "gasless":
-        aa.toggleGasless();
-        addLog("sys", `Gasless mode ${!aa.gaslessEnabled ? "ENABLED" : "DISABLED"}.`);
-        if (!aa.gaslessEnabled) {
-          addLog("sys", "ERC-4337 UserOperations will be sent via Kite bundler.");
-          addLog("sys", `AA Wallet: ${aa.aaAddress?.slice(0, 10)}...${aa.aaAddress?.slice(-8)}`);
+        addLog("sys", "All on-chain operations are gasless ERC-4337 UserOperations.");
+        if (!agent?.exists) {
+          addLog("sys", "TIP: Run 'register' first to create your agent identity.");
         }
         break;
 
       case "register":
-        if (!address) { addLog("err", "No address"); return; }
-        if (aa.gaslessEnabled) {
-          addLog("sys", "Registering agent via gasless AA...");
-          try {
-            await aa.sendGaslessTx(
-              { target: PULSE_SCORE_ADDRESS, callData: encodeRegisterAgent(address) },
-              signUserOp
-            );
-          } catch (err: unknown) {
-            addLog("err", `Gasless register failed: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
+        addLog("sys", "Registering AA wallet as agent on-chain...");
+        try {
+          const result = await aa.sendGaslessTx(
+            { target: PULSE_SCORE_ADDRESS, callData: encodeRegisterAgent(canonicalAddress) },
+            signUserOp
+          );
+          if (result.status === "success" && result.userOpHash) {
+            addLog("sys", "Agent registered. AA wallet is now the owner.");
+            addLog("out", `  UserOp Hash: ${result.userOpHash}`);
+            addLog("out", `  Explorer:    https://testnet.kitescan.ai/tx/${result.userOpHash}`);
+            addLog("sys", "Next: Run 'approve max' to let PulseScore spend your AA wallet's USDC.");
+            await refetchAgent();
           }
-        } else {
-          addLog("sys", "Registering agent...");
-          writeRegister({ address: PULSE_SCORE_ADDRESS, abi: PULSE_SCORE_ABI, functionName: "registerAgent", args: [address] });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addLog("err", `Registration failed: ${msg.slice(0, 200)}`);
+          if (msg.includes("AA33") || msg.includes("reverted")) {
+            addLog("err", "Paymaster rejected the transaction. Fund your AA wallet with KITE or USDC.");
+            if (aa.aaAddress) {
+              addLog("sys", `Fund your AA wallet: ${aa.aaAddress}`);
+              addLog("out", `  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
+            }
+          }
         }
         break;
 
@@ -223,7 +227,8 @@ export default function Terminal() {
         addLog("out", `  Total Spent: $${(Number(agent.totalSpent) / USDCD).toFixed(4)} USDC`);
         addLog("out", `  Session:    $${sessionRemaining ? (Number(sessionRemaining) / USDCD).toFixed(4) : "0"} remaining`);
         if (aa.aaAddress) {
-          addLog("out", `  AA Wallet:  ${aa.aaAddress.slice(0, 10)}...${aa.aaAddress.slice(-8)} ${aa.gaslessEnabled ? "[GASLESS ACTIVE]" : "[GASLESS OFF]"}`);
+          addLog("out", `  AA Wallet:  ${aa.aaAddress}`);
+          addLog("out", `  Fund link:  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
         }
         break;
 
@@ -242,19 +247,27 @@ export default function Terminal() {
       case "request": {
         const id = parseInt(args[0], 10);
         if (!id || isNaN(id)) { addLog("err", "Usage: request <service_id>"); return; }
-        if (aa.gaslessEnabled) {
-          addLog("sys", `Requesting service #${id} via gasless AA...`);
-          try {
-            await aa.sendGaslessTx(
-              { target: PULSE_SCORE_ADDRESS, callData: encodeRequestService(BigInt(id)) },
-              signUserOp
-            );
-          } catch (err: unknown) {
-            addLog("err", `Gasless request failed: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
+        addLog("sys", `Requesting service #${id} via gasless AA...`);
+        try {
+          const result = await aa.sendGaslessTx(
+            { target: PULSE_SCORE_ADDRESS, callData: encodeRequestService(BigInt(id), canonicalAddress) },
+            signUserOp
+          );
+          if (result.status === "success" && result.userOpHash) {
+            addLog("sys", `Service #${id} requested.`);
+            addLog("out", `  UserOp Hash: ${result.userOpHash}`);
+            addLog("out", `  Explorer:    https://testnet.kitescan.ai/tx/${result.userOpHash}`);
           }
-        } else {
-          addLog("sys", `Requesting service #${id} (x402 step 1)...`);
-          writeRequest({ address: PULSE_SCORE_ADDRESS, abi: PULSE_SCORE_ABI, functionName: "requestService", args: [BigInt(id)] });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addLog("err", `Request failed: ${msg.slice(0, 200)}`);
+          if (msg.includes("AA33") || msg.includes("reverted")) {
+            addLog("err", "Paymaster rejected the transaction. Fund your AA wallet with KITE or USDC.");
+            if (aa.aaAddress) {
+              addLog("sys", `Fund your AA wallet: ${aa.aaAddress}`);
+              addLog("out", `  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
+            }
+          }
         }
         break;
       }
@@ -262,20 +275,27 @@ export default function Terminal() {
       case "settle": {
         const id = parseInt(args[0], 10);
         if (!id || isNaN(id)) { addLog("err", "Usage: settle <service_id>"); return; }
-        if (!address) { addLog("err", "No address"); return; }
-        if (aa.gaslessEnabled) {
-          addLog("sys", `Settling payment for service #${id} via gasless AA...`);
-          try {
-            await aa.sendGaslessTx(
-              { target: PULSE_SCORE_ADDRESS, callData: encodeSettlePayment(BigInt(id), address, true) },
-              signUserOp
-            );
-          } catch (err: unknown) {
-            addLog("err", `Gasless settle failed: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
+        addLog("sys", `Settling payment for service #${id} via gasless AA...`);
+        try {
+          const result = await aa.sendGaslessTx(
+            { target: PULSE_SCORE_ADDRESS, callData: encodeSettlePayment(BigInt(id), canonicalAddress, true) },
+            signUserOp
+          );
+          if (result.status === "success" && result.userOpHash) {
+            addLog("sys", `Payment settled for service #${id}.`);
+            addLog("out", `  UserOp Hash: ${result.userOpHash}`);
+            addLog("out", `  Explorer:    https://testnet.kitescan.ai/tx/${result.userOpHash}`);
           }
-        } else {
-          addLog("sys", `Settling payment for service #${id} (x402 step 2)...`);
-          writeSettle({ address: PULSE_SCORE_ADDRESS, abi: PULSE_SCORE_ABI, functionName: "settlePayment", args: [BigInt(id), address, true] });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addLog("err", `Settle failed: ${msg.slice(0, 200)}`);
+          if (msg.includes("AA33") || msg.includes("reverted")) {
+            addLog("err", "Paymaster rejected the transaction. Fund your AA wallet with KITE or USDC.");
+            if (aa.aaAddress) {
+              addLog("sys", `Fund your AA wallet: ${aa.aaAddress}`);
+              addLog("out", `  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
+            }
+          }
         }
         break;
       }
@@ -283,57 +303,84 @@ export default function Terminal() {
       case "approve": {
         if (args[0] === "max") {
           const maxAmount = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-          if (aa.gaslessEnabled) {
-            addLog("sys", "Approving unlimited USDC via gasless AA...");
-            try {
-              await aa.sendGaslessTx(
-                { target: USDC_ADDRESS, callData: encodeApproveUSDC(PULSE_SCORE_ADDRESS, maxAmount) },
-                signUserOp
-              );
-            } catch (err: unknown) {
-              addLog("err", `Gasless approve failed: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
+          addLog("sys", "Approving unlimited USDC via gasless AA...");
+          try {
+            const result = await aa.sendGaslessTx(
+              { target: USDC_ADDRESS, callData: encodeApproveUSDC(PULSE_SCORE_ADDRESS, maxAmount) },
+              signUserOp
+            );
+            if (result.status === "success" && result.userOpHash) {
+              addLog("sys", "Unlimited USDC approved.");
+              addLog("out", `  UserOp Hash: ${result.userOpHash}`);
+              addLog("out", `  Explorer:    https://testnet.kitescan.ai/tx/${result.userOpHash}`);
             }
-          } else {
-            addLog("sys", "Approving unlimited USDC for Sibyl...");
-            addLog("sys", "WARNING: This allows the contract to spend all your USDC. Only use for trusted sessions.");
-            writeApprove({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [PULSE_SCORE_ADDRESS, maxAmount] });
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            addLog("err", `Approve failed: ${msg.slice(0, 200)}`);
+            if (msg.includes("AA33")) {
+              addLog("err", "Paymaster underfunded. Fund your AA wallet with KITE or USDC.");
+              if (aa.aaAddress) addLog("out", `  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
+            }
           }
         } else {
           const amount = parseFloat(args[0]);
           if (!amount || isNaN(amount)) { addLog("err", "Usage: approve <amount_in_usdc> OR approve max"); return; }
           const raw = BigInt(Math.round(amount * USDCD));
-          if (aa.gaslessEnabled) {
-            addLog("sys", `Approving ${amount} USDC via gasless AA...`);
-            try {
-              await aa.sendGaslessTx(
-                { target: USDC_ADDRESS, callData: encodeApproveUSDC(PULSE_SCORE_ADDRESS, raw) },
-                signUserOp
-              );
-            } catch (err: unknown) {
-              addLog("err", `Gasless approve failed: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
+          addLog("sys", `Approving ${amount} USDC via gasless AA...`);
+          try {
+            const result = await aa.sendGaslessTx(
+              { target: USDC_ADDRESS, callData: encodeApproveUSDC(PULSE_SCORE_ADDRESS, raw) },
+              signUserOp
+            );
+            if (result.status === "success" && result.userOpHash) {
+              addLog("sys", `${amount} USDC approved.`);
+              addLog("out", `  UserOp Hash: ${result.userOpHash}`);
+              addLog("out", `  Explorer:    https://testnet.kitescan.ai/tx/${result.userOpHash}`);
             }
-          } else {
-            addLog("sys", `Approving ${amount} USDC for Sibyl...`);
-            writeApprove({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [PULSE_SCORE_ADDRESS, raw] });
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            addLog("err", `Approve failed: ${msg.slice(0, 200)}`);
+            if (msg.includes("AA33")) {
+              addLog("err", "Paymaster underfunded. Fund your AA wallet with KITE or USDC.");
+              if (aa.aaAddress) addLog("out", `  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
+            }
           }
         }
         break;
       }
 
+      case "fund-aa": {
+        if (!aa.aaAddress) { addLog("err", "AA wallet not available. Connect wallet first."); return; }
+        if (!address) { addLog("err", "No wallet connected."); return; }
+        const amount = parseFloat(args[0]);
+        if (!amount || isNaN(amount) || amount <= 0) { addLog("err", "Usage: fund-aa <amount_in_usdc>"); return; }
+        const raw = BigInt(Math.round(amount * USDCD));
+        addLog("sys", `Transferring ${amount} USDC to AA wallet ${aa.aaAddress}...`);
+        addLog("out", `  From: ${address}`);
+        addLog("out", `  To:   ${aa.aaAddress}`);
+        writeTransfer({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "transfer", args: [aa.aaAddress as `0x${string}`, raw] });
+        break;
+      }
+
       case "refresh":
-        if (aa.gaslessEnabled) {
-          addLog("sys", "Refreshing session via gasless AA...");
-          try {
-            await aa.sendGaslessTx(
-              { target: PULSE_SCORE_ADDRESS, callData: encodeRefreshSession() },
-              signUserOp
-            );
-          } catch (err: unknown) {
-            addLog("err", `Gasless refresh failed: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
+        addLog("sys", "Refreshing session via gasless AA...");
+        try {
+          const result = await aa.sendGaslessTx(
+            { target: PULSE_SCORE_ADDRESS, callData: encodeRefreshSession() },
+            signUserOp
+          );
+          if (result.status === "success" && result.userOpHash) {
+            addLog("sys", "Session refreshed.");
+            addLog("out", `  UserOp Hash: ${result.userOpHash}`);
+            addLog("out", `  Explorer:    https://testnet.kitescan.ai/tx/${result.userOpHash}`);
           }
-        } else {
-          addLog("sys", "Refreshing session budget...");
-          writeRefresh({ address: PULSE_SCORE_ADDRESS, abi: PULSE_SCORE_ABI, functionName: "refreshSession" });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addLog("err", `Refresh failed: ${msg.slice(0, 200)}`);
+          if (msg.includes("AA33")) {
+            addLog("err", "Paymaster underfunded. Fund your AA wallet with KITE or USDC.");
+            if (aa.aaAddress) addLog("out", `  https://testnet.kitescan.ai/address/${aa.aaAddress}`);
+          }
         }
         break;
 
@@ -356,7 +403,7 @@ export default function Terminal() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || running) return;
+    if (!input.trim()) return;
     const parts = input.trim().split(/\s+/);
     const cmd = parts[0].toLowerCase();
     const args = parts.slice(1);
@@ -402,10 +449,7 @@ export default function Terminal() {
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
           <p className="text-text-secondary text-sm leading-relaxed max-w-2xl">
-            Live CLI for the Kite agentic economy. Register agents, discover services, and settle x402 payments — all from the command line.
-            {aa.gaslessEnabled && (
-              <span className="text-neon-green ml-2">[GASLESS MODE ACTIVE]</span>
-            )}
+            Live CLI for the Kite agentic economy. All on-chain operations are gasless ERC-4337 UserOperations.
           </p>
           <div className="flex gap-3 mt-4">
             <button
@@ -433,15 +477,13 @@ export default function Terminal() {
             <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-surface-raised">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-text-tertiary font-bold tracking-wider">AGENT_SESSION</span>
-                <span className={`text-[10px] ${isConnected && !isWrongChain ? "text-neon-green" : "text-danger"}`}>
-                  {isConnected && !isWrongChain ? "● ONLINE" : "● OFFLINE"}
+                <span className={`text-[10px] ${mounted && isConnected && !isWrongChain ? "text-neon-green" : "text-danger"}`}>
+                  {mounted ? (isConnected && !isWrongChain ? "● ONLINE" : "● OFFLINE") : "● ..."}
                 </span>
-                {aa.gaslessEnabled && (
-                  <span className="text-[10px] text-neon-yellow font-bold tracking-wider">⚡ GASLESS</span>
-                )}
+                <span className="text-[10px] text-neon-yellow font-bold tracking-wider">⚡ GASLESS</span>
               </div>
               <span className="text-[10px] text-text-tertiary font-mono">
-                {isConnected && address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "not connected"} :: {realChainId ?? "?"}
+                {mounted && isConnected && canonicalAddress ? `${canonicalAddress.slice(0, 6)}...${canonicalAddress.slice(-4)}` : "not connected"} :: {mounted ? (realChainId ?? "?") : "?"}
               </span>
             </div>
 
@@ -487,7 +529,7 @@ export default function Terminal() {
               register
             </code>
             <p className="text-[11px] text-text-secondary leading-relaxed">
-              Create on-chain agent identity. Grants $100 session budget.
+              Create on-chain agent identity for your AA wallet. Grants $100 session budget.
             </p>
           </div>
 
@@ -513,7 +555,7 @@ export default function Terminal() {
               request 1<br/>settle 1
             </code>
             <p className="text-[11px] text-text-secondary leading-relaxed">
-              x402 two-step: request service, then settle USDC payment.
+              x402 two-step: request service, then settle USDC payment. Fully gasless.
             </p>
           </div>
         </div>
@@ -522,17 +564,16 @@ export default function Terminal() {
         <div className="fade-in mt-6" style={{ animationDelay: "0.3s", padding: "20px", background: "rgba(10,10,10,0.85)", border: "1px solid #222" }}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-neon-yellow text-lg">⚡</span>
-            <span className="text-[12px] font-bold text-text-primary">ERC-4337 GASLESS MODE</span>
+            <span className="text-[12px] font-bold text-text-primary">ERC-4337 GASLESS ARCHITECTURE</span>
           </div>
           <p className="text-[11px] text-text-secondary leading-relaxed mb-3">
-            Sibyl integrates the Kite AA SDK for gasless transactions via ERC-4337 Account Abstraction.
-            When enabled, all contract interactions are sent as UserOperations through the Kite bundler —
-            no native KITE gas required from your EOA wallet.
+            All contract interactions are sent as UserOperations through the Kite bundler.
+            Your EOA wallet only signs — no native KITE gas required. The AA wallet is your agent identity.
           </p>
           <div className="flex gap-2 flex-wrap">
             <span className="text-[10px] text-text-tertiary border border-border px-2 py-1">AA Wallet: Deterministic per EOA</span>
             <span className="text-[10px] text-text-tertiary border border-border px-2 py-1">Bundler: staging.gokite.ai</span>
-            <span className="text-[10px] text-text-tertiary border border-border px-2 py-1">Settlement: 0x8d9F...a63E3</span>
+            <span className="text-[10px] text-text-tertiary border border-border px-2 py-1">EntryPoint: 0x4337...f108</span>
           </div>
         </div>
       </div>

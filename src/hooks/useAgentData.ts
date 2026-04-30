@@ -5,8 +5,9 @@ import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_DECIMALS, getScoreTier } fro
 
 const USDCD = 10 ** USDC_DECIMALS;
 
-export function useAgentData() {
+export function useAgentData(agentAddress?: `0x${string}`) {
   const { address, isConnected } = useAccount();
+  const targetAddress = agentAddress || address;
 
   const {
     data: agent,
@@ -16,8 +17,8 @@ export function useAgentData() {
     address: PULSE_SCORE_ADDRESS,
     abi: PULSE_SCORE_ABI,
     functionName: "getAgent",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: targetAddress ? [targetAddress] : undefined,
+    query: { enabled: !!targetAddress },
   });
 
   const { data: agentCount, isLoading: countLoading } = useReadContract({
@@ -30,16 +31,16 @@ export function useAgentData() {
     address: PULSE_SCORE_ADDRESS,
     abi: PULSE_SCORE_ABI,
     functionName: "getSessionRemaining",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: targetAddress ? [targetAddress] : undefined,
+    query: { enabled: !!targetAddress },
   });
 
   const { data: recentTxns, isLoading: txnsLoading } = useReadContract({
     address: PULSE_SCORE_ADDRESS,
     abi: PULSE_SCORE_ABI,
     functionName: "getAgentTransactions",
-    args: address ? [address, BigInt(10)] : undefined,
-    query: { enabled: !!address },
+    args: targetAddress ? [targetAddress, BigInt(10)] : undefined,
+    query: { enabled: !!targetAddress },
   });
 
   const score = agent ? Number(agent.score) : 0;
@@ -53,6 +54,7 @@ export function useAgentData() {
   const tier = getScoreTier(score);
   const exists = agent?.exists ?? false;
   const registeredAt = agent ? new Date(Number(agent.registeredAt) * 1000).toISOString().split("T")[0] : null;
+  const lastUpdated = agent ? Number(agent.lastUpdated) : 0;
 
   const transactions = recentTxns
     ? recentTxns.map((tx) => ({
@@ -72,7 +74,7 @@ export function useAgentData() {
   const isLoading = agentLoading || countLoading;
 
   return {
-    address,
+    address: targetAddress,
     isConnected,
     exists,
     score,
@@ -85,6 +87,7 @@ export function useAgentData() {
     successRate,
     tier,
     registeredAt,
+    lastUpdated,
     agentCount: agentCount ? Number(agentCount) : 0,
     isLoading,
     isError: !!agentError,

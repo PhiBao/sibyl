@@ -11,7 +11,7 @@ interface IERC20 {
 /**
  * @title PulseScore
  * @notice Agent reputation & service registry for Kite's agentic economy
- * @dev Supports x402-style payments, service discovery, and bidirectional reputation
+ * @dev Supports x402-style payments, service discovery, bidirectional reputation, and ERC-4337 AA wallets
  */
 contract PulseScore {
     // ──────────────────────────────────────────────
@@ -36,7 +36,7 @@ contract PulseScore {
         string name;
         string description;
         string endpoint;         // API endpoint for x402
-        uint256 price;           // USDC per call (6 decimals)
+        uint256 price;           // USDC per call (18 decimals on Kite)
         uint256 minScore;        // Minimum reputation to access
         bool exists;
         uint256 totalCalls;
@@ -72,6 +72,7 @@ contract PulseScore {
     mapping(uint256 => Rating[]) public serviceRatings;
     mapping(address => uint256[]) public agentServices;     // Services offered by agent
     mapping(address => Transaction[]) public agentTransactions;
+    mapping(address => mapping(address => bool)) public delegates; // agent => delegate => allowed
 
     address[] public agentList;
     uint256 public serviceCount;
@@ -99,6 +100,9 @@ contract PulseScore {
     event ServiceRated(uint256 indexed serviceId, address indexed rater, uint8 score);
     event SessionRefreshed(address indexed agent, uint256 newBudget);
     event ScoreUpdated(address indexed agent, uint256 oldScore, uint256 newScore);
+    event DelegateAdded(address indexed agent, address indexed delegate);
+    event DelegateRemoved(address indexed agent, address indexed delegate);
+    event OwnershipTransferred(address indexed agent, address indexed newOwner);
 
     // ──────────────────────────────────────────────
     //  Modifiers
@@ -132,8 +136,16 @@ contract PulseScore {
     //  Agent Lifecycle
     // ──────────────────────────────────────────────
 
+    /**
+     * @notice Register a new agent, or update owner if already registered (idempotent for AA wallet takeover)
+     */
     function registerAgent(address _agentAddress) external {
-        require(!agents[_agentAddress].exists, "PulseScore: already registered");
+        if (agents[_agentAddress].exists) {
+            // Idempotent: allow AA wallet or new owner to take over ownership
+            agents[_agentAddress].owner = msg.sender;
+            emit OwnershipTransferred(_agentAddress, msg.sender);
+            return;
+        }
 
         agents[_agentAddress] = Agent({
             owner: msg.sender,
@@ -157,6 +169,25 @@ contract PulseScore {
         agent.sessionBudget = DEFAULT_BUDGET;
         agent.sessionSpent = 0;
         emit SessionRefreshed(msg.sender, DEFAULT_BUDGET);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Delegation (ERC-4337 AA Wallet Support)
+    // ──────────────────────────────────────────────
+
+    function addDelegate(address delegate) external agentExists(msg.sender) {
+        delegates[msg.sender][delegate] = true;
+        emit DelegateAdded(msg.sender, delegate);
+    }
+
+    function removeDelegate(address delegate) external agentExists(msg.sender) {
+        delegates[msg.sender][delegate] = false;
+        emit DelegateRemoved(msg.sender, delegate);
+    }
+
+    function isAuthorized(address buyer, address caller) internal view returns (bool) {
+        Agent storage a = agents[buyer];
+        return caller == a.owner || delegates[buyer][caller];
     }
 
     // ──────────────────────────────────────────────
@@ -194,16 +225,18 @@ contract PulseScore {
     /**
      * @notice Step 1: Agent requests a service (x402 "402 challenge")
      * @param _serviceId The service to request
+     * @param _buyer The agent requesting (allows ERC-4337 AA wallets via delegation)
      */
-    function requestService(uint256 _serviceId) external agentExists(msg.sender) serviceExists(_serviceId) {
+    function requestService(uint256 _serviceId, address _buyer) external serviceExists(_serviceId) agentExists(_buyer) {
         Service storage svc = services[_serviceId];
-        Agent storage buyer = agents[msg.sender];
+        Agent storage buyer = agents[_buyer];
 
-        require(msg.sender != svc.provider, "PulseScore: cannot request own service");
+        require(isAuthorized(_buyer, msg.sender), "PulseScore: not authorized");
+        require(_buyer != svc.provider, "PulseScore: cannot request own service");
         require(buyer.score >= svc.minScore, "PulseScore: insufficient reputation");
         require(buyer.sessionBudget - buyer.sessionSpent >= svc.price, "PulseScore: session budget exceeded");
 
-        emit ServiceRequested(_serviceId, msg.sender, svc.price);
+        emit ServiceRequested(_serviceId, _buyer, svc.price);
     }
 
     /**
@@ -220,7 +253,7 @@ contract PulseScore {
         Service storage svc = services[_serviceId];
         Agent storage buyer = agents[_buyer];
 
-        require(msg.sender == svc.provider || msg.sender == buyer.owner, "PulseScore: not authorized");
+        require(msg.sender == svc.provider || isAuthorized(_buyer, msg.sender), "PulseScore: not authorized");
         require(_buyer != svc.provider, "PulseScore: self-service");
         require(buyer.score >= svc.minScore, "PulseScore: insufficient reputation");
         require(buyer.sessionBudget - buyer.sessionSpent >= svc.price, "PulseScore: session budget exceeded");

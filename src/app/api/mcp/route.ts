@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
  *   - get_service(serviceId) -> price, minScore, provider
  */
 
-const PULSE_SCORE_ADDRESS = process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b";
+const PULSE_SCORE_ADDRESS = process.env.NEXT_PUBLIC_PULSE_SCORE_ADDRESS || "0x0249bfec16c4B455057B59D9aC94f0E41a86B359";
 
 const TOOLS = [
   {

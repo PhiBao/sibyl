@@ -6,32 +6,25 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import TransactionList from "@/components/TransactionList";
 import Toast from "@/components/Toast";
 import { useAgentData } from "@/hooks/useAgentData";
-import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { SCORE_TIERS, PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import { useMounted } from "@/hooks/useMounted";
 import { useRealChainId } from "@/hooks/useRealChainId";
+import { useAAWallet } from "@/hooks/useAAWallet";
+import { encodeRegisterAgent } from "@/lib/aa-sdk";
 
 export default function Profile() {
   const mounted = useMounted();
   const { isConnected, address } = useAccount();
   const { connect, connectors } = useConnect();
-  const agent = useAgentData();
+  const aa = useAAWallet();
+  const { data: walletClient } = useWalletClient();
+  const agent = useAgentData(aa.canonicalAddress as `0x${string}`);
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [addingNetwork, setAddingNetwork] = useState(false);
-
-  const { writeContract, data: txHash, isPending: isRegistering } = useWriteContract({
-    mutation: {
-      onError: (err) => {
-        setToast({ message: err.message.slice(0, 120), type: "error" });
-      },
-      onSuccess: () => {
-        setToast({ message: "Registration submitted — awaiting confirmation", type: "success" });
-      },
-    },
-  });
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+  const [registering, setRegistering] = useState(false);
 
   const handleAddNetwork = async () => {
     setAddingNetwork(true);
@@ -46,14 +39,33 @@ export default function Profile() {
     }
   };
 
-  const handleRegister = () => {
-    if (!address) return;
-    writeContract({
-      address: PULSE_SCORE_ADDRESS,
-      abi: PULSE_SCORE_ABI,
-      functionName: "registerAgent",
-      args: [address],
+  const signUserOp = async (userOpHash: string): Promise<string> => {
+    if (!walletClient || !address) throw new Error("Wallet not available");
+    return (walletClient as any).request({
+      method: "personal_sign",
+      params: [userOpHash, address],
     });
+  };
+
+  const handleRegister = async () => {
+    if (!aa.canonicalAddress) return;
+    setRegistering(true);
+    try {
+      const result = await aa.sendGaslessTx(
+        { target: PULSE_SCORE_ADDRESS, callData: encodeRegisterAgent(aa.canonicalAddress) },
+        signUserOp
+      );
+      if (result.status === "success") {
+        setToast({ message: "AA wallet registered as agent — gasless UserOp confirmed", type: "success" });
+      } else {
+        setToast({ message: "Registration UserOp failed — check AA wallet funding", type: "error" });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToast({ message: msg.slice(0, 120), type: "error" });
+    } finally {
+      setRegistering(false);
+    }
   };
 
   if (!mounted) {
@@ -80,6 +92,10 @@ export default function Profile() {
     );
   }
 
+  if (aa.isLoading) {
+    return <LoadingSpinner text="COMPUTING AA WALLET..." />;
+  }
+
   if (agent.isLoading) {
     return <LoadingSpinner text="DECRYPTING PROFILE..." />;
   }
@@ -90,73 +106,67 @@ export default function Profile() {
         <div className="text-center max-w-md fade-in">
           <div className="text-neon-green text-4xl mb-6 font-bold tracking-widest">[ AGENT ]</div>
           <h1 className="text-2xl font-bold tracking-tight mb-3">NO IDENTITY FOUND</h1>
-          <p className="text-text-secondary text-sm mb-4">Register on-chain to initialize reputation tracking.</p>
-          <p className="text-neon-green text-xs font-mono mb-10 border border-neon-green/20 inline-block px-3 py-1.5">{address}</p>
-          {isConfirmed ? (
-            <div className="space-y-5">
-              <div className="text-neon-green text-sm font-bold border border-neon-green/30 inline-block px-4 py-2">
-                [ ✓ IDENTITY CREATED ]
-              </div>
-              <div>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="neon-btn-primary px-6 py-2.5 text-sm rounded-sm"
-                >
-                  [ LOAD PROFILE ]
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {isWrongChain && (
-                <div className="border-2 border-danger bg-danger/10 px-5 py-4">
-                  <p className="text-[13px] text-danger font-bold tracking-wider mb-2">
-                    [ WRONG NETWORK ]
-                  </p>
-                  <p className="text-[12px] text-text-secondary mb-3">
-                     Wallet is on chain <span className="text-danger font-mono font-bold">{realChainId ?? "?"}</span>. Switch to <span className="text-neon-green font-mono font-bold">Kite Testnet (ID: {kiteTestnet.id})</span> in your wallet to register.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleAddNetwork}
-                      disabled={addingNetwork}
-                      className="px-3 py-1.5 text-[11px] font-bold tracking-wider border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/20 transition-all disabled:opacity-50"
-                    >
-                      {addingNetwork ? "ADDING..." : "[ + ADD KITE TESTNET ]"}
-                    </button>
-                  </div>
+          <p className="text-text-secondary text-sm mb-4">Register your AA wallet on-chain to initialize reputation tracking.</p>
+          <p className="text-neon-cyan text-xs font-mono mb-2 border border-neon-cyan/20 inline-block px-3 py-1.5 break-all">{aa.canonicalAddress}</p>
+          <p className="text-text-tertiary text-[11px] mb-10">This is your deterministic AA wallet address. All operations are gasless.</p>
+
+          <div className="space-y-4">
+            {isWrongChain && (
+              <div className="border-2 border-danger bg-danger/10 px-5 py-4">
+                <p className="text-[13px] text-danger font-bold tracking-wider mb-2">
+                  [ WRONG NETWORK ]
+                </p>
+                <p className="text-[12px] text-text-secondary mb-3">
+                  Wallet is on chain <span className="text-danger font-mono font-bold">{realChainId ?? "?"}</span>. Switch to <span className="text-neon-green font-mono font-bold">Kite Testnet (ID: {kiteTestnet.id})</span>.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAddNetwork}
+                    disabled={addingNetwork}
+                    className="px-3 py-1.5 text-[11px] font-bold tracking-wider border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/20 transition-all disabled:opacity-50"
+                  >
+                    {addingNetwork ? "ADDING..." : "[ + ADD KITE TESTNET ]"}
+                  </button>
                 </div>
-              )}
-              <button
-                onClick={handleRegister}
-                disabled={isRegistering || isConfirming || isWrongChain}
-                className={`px-8 py-3 text-sm rounded-sm disabled:opacity-40 font-bold tracking-wider transition-all ${
-                  isWrongChain
-                    ? "border border-danger/40 text-danger/60 cursor-not-allowed"
-                    : "neon-btn-primary"
-                }`}
-              >
-                {isWrongChain
-                  ? "[ SWITCH TO KITE TESTNET ]"
-                  : isRegistering
-                    ? "AWAITING SIGNATURE..."
-                    : isConfirming
-                      ? "BROADCASTING..."
-                      : "[ REGISTER AGENT ]"}
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+            <button
+              onClick={handleRegister}
+              disabled={registering || isWrongChain}
+              className={`px-8 py-3 text-sm rounded-sm disabled:opacity-40 font-bold tracking-wider transition-all ${
+                isWrongChain
+                  ? "border border-danger/40 text-danger/60 cursor-not-allowed"
+                  : "neon-btn-primary"
+              }`}
+            >
+              {isWrongChain
+                ? "[ SWITCH TO KITE TESTNET ]"
+                : registering
+                  ? "BUNDLING USEROP..."
+                  : "[ REGISTER AA WALLET ]"}
+            </button>
+          </div>
         </div>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </div>
     );
   }
 
-  const scoreBreakdown = [
-    { label: "TX_SUCCESS", value: Math.min(Math.round(agent.score * 0.43), 400), max: 400, color: "#00ff41" },
-    { label: "PAYMENT_RELIABILITY", value: Math.min(Math.round(agent.score * 0.28), 250), max: 250, color: "#00d4ff" },
-    { label: "SERVICE_RATINGS", value: Math.min(Math.round(agent.score * 0.19), 200), max: 200, color: "#ff0055" },
-    { label: "TIME_WEIGHTED", value: Math.min(Math.round(agent.score * 0.10), 150), max: 150, color: "#f0f000" },
+  // Honest score attribution based on PulseScore.sol mechanics
+  const failedTxns = agent.totalTxns - agent.successTxns;
+  const weeksInactive = agent.lastUpdated > 0
+    ? Math.max(0, Math.floor((Date.now() / 1000 - agent.lastUpdated) / (7 * 24 * 3600)))
+    : 0;
+  const successBonus = agent.successTxns * 6; // ~avg +5 to +8 per success
+  const failurePenalty = failedTxns * 15;
+  const timeDecay = weeksInactive * 1;
+  const rawTotal = 200 + successBonus - failurePenalty - timeDecay;
+
+  const scoreAttribution = [
+    { label: "BASE_SCORE", value: 200, max: 200, color: "#00ff41", note: "Registration bonus" },
+    { label: "SUCCESS_BONUS", value: successBonus, max: Math.max(successBonus, 800), color: "#00d4ff", note: `+~6 pts x ${agent.successTxns} txns` },
+    { label: "FAILURE_PENALTY", value: -failurePenalty, max: 0, color: "#ff0055", note: failedTxns > 0 ? `-15 pts x ${failedTxns} txns` : "None" },
+    { label: "TIME_DECAY", value: -timeDecay, max: 0, color: "#f0f000", note: weeksInactive > 0 ? `-${timeDecay} pts (${weeksInactive}w inactive)` : "None" },
   ];
 
   return (
@@ -169,7 +179,8 @@ export default function Profile() {
             🤖
           </div>
           <h1 className="text-xl font-bold tracking-tight mb-2">AGENT_PROFILE</h1>
-          <p className="text-[12px] text-neon-green font-mono mb-4 break-all">{address}</p>
+          <p className="text-[12px] text-neon-cyan font-mono mb-1 break-all">{aa.canonicalAddress}</p>
+          <p className="text-[10px] text-text-tertiary font-mono mb-4">Signer: {address}</p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <span
               className="text-[11px] font-bold px-3 py-1 border"
@@ -180,6 +191,9 @@ export default function Profile() {
             <span className="text-[11px] font-bold px-3 py-1 border border-neon-green/30 text-neon-green bg-neon-green/10">
               [ ✓ ON-CHAIN VERIFIED ]
             </span>
+            <span className="text-[11px] font-bold px-3 py-1 border border-neon-yellow/30 text-neon-yellow bg-neon-yellow/10">
+              [ ⚡ GASLESS ]
+            </span>
           </div>
         </div>
 
@@ -188,36 +202,55 @@ export default function Profile() {
           <PulseScoreRing score={agent.score} size={180} />
         </div>
 
-        {/* Score Breakdown */}
+        {/* Score Attribution */}
         <div className="fade-in mb-6" style={{ animationDelay: "0.3s", padding: "24px", background: "rgba(10,10,10,0.85)", border: "1px solid #222" }}>
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-neon-green text-xs font-bold">[</span>
-            <span className="text-xs font-bold tracking-widest text-text-secondary">SCORE_BREAKDOWN</span>
+            <span className="text-xs font-bold tracking-widest text-text-secondary">SCORE_ATTRIBUTION</span>
             <span className="text-neon-green text-xs font-bold">]</span>
           </div>
+          <p className="text-[11px] text-text-tertiary mb-5">
+            Calculated from on-chain mechanics. Final score is capped 0–1000.
+          </p>
           <div className="space-y-5">
-            {scoreBreakdown.map((f, i) => (
-              <div key={f.label}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[12px] text-text-secondary font-mono">{f.label}</span>
-                  <span className="text-[11px] font-mono text-text-tertiary">
-                    {f.value}/{f.max}
-                  </span>
+            {scoreAttribution.map((f, i) => {
+              const isPositive = f.value >= 0;
+              const barMax = Math.max(f.max, Math.abs(f.value));
+              const barPct = barMax > 0 ? (Math.abs(f.value) / barMax) * 100 : 0;
+              return (
+                <div key={f.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[12px] text-text-secondary font-mono">{f.label}</span>
+                    <span className="text-[11px] font-mono" style={{ color: isPositive ? "#00ff41" : "#ff0055" }}>
+                      {isPositive ? "+" : ""}{f.value}
+                    </span>
+                  </div>
+                  <div className="h-2.5 bg-surface-raised border border-border overflow-hidden">
+                    <div
+                      className="score-bar-animate"
+                      style={
+                        {
+                          background: f.color,
+                          "--target-width": `${Math.min(barPct, 100)}%`,
+                          animationDelay: `${0.6 + i * 0.1}s`,
+                        } as React.CSSProperties
+                      }
+                    />
+                  </div>
+                  <p className="text-[10px] text-text-tertiary mt-1">{f.note}</p>
                 </div>
-                <div className="h-2.5 bg-surface-raised border border-border overflow-hidden">
-                  <div
-                    className="score-bar-animate"
-                    style={
-                      {
-                        background: f.color,
-                        "--target-width": `${Math.min((f.value / f.max) * 100, 100)}%`,
-                        animationDelay: `${0.6 + i * 0.1}s`,
-                      } as React.CSSProperties
-                    }
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+          <div className="mt-5 pt-4 border-t border-border">
+            <div className="flex items-center justify-between text-[12px] font-mono">
+              <span className="text-text-secondary">RAW_TOTAL</span>
+              <span className={rawTotal >= 0 ? "text-neon-green" : "text-danger"}>{rawTotal >= 0 ? "+" : ""}{rawTotal}</span>
+            </div>
+            <div className="flex items-center justify-between text-[12px] font-mono mt-1">
+              <span className="text-text-secondary">CAPPED_SCORE</span>
+              <span className="text-neon-cyan font-bold">{agent.score} / 1000</span>
+            </div>
           </div>
         </div>
 

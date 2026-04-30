@@ -2,7 +2,10 @@ import "@nomicfoundation/hardhat-ethers";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000001";
+const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
+if (!PRIVATE_KEY) {
+  throw new Error("DEPLOYER_PRIVATE_KEY not set in environment. Check your .env file.");
+}
 
 const config = {
   solidity: {

@@ -156,7 +156,7 @@ export default function Faucet() {
             {[
               { label: "KITE (Native Gas)", address: "Native token — no contract", explorer: null },
               { label: "USDC (Payment)", address: "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63", explorer: "https://testnet.kitescan.ai/token/0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63" },
-              { label: "PulseScore", address: "0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b", explorer: "https://testnet.kitescan.ai/address/0x2824a4A5Dfa62E4F956358Fc2e2AE88175F6Af2b" },
+              { label: "PulseScore", address: "0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04", explorer: "https://testnet.kitescan.ai/address/0x4Cf4Ca414616Dad1CCc76015Ee24A5DB53f06b04" },
             ].map((token) => (
               <div key={token.label} className="flex items-center justify-between border border-border p-3 bg-surface-raised">
                 <div>
