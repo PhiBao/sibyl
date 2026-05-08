@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount } from "wagmi";
 import { PULSE_SCORE_ADDRESS, PULSE_SCORE_ABI, USDC_DECIMALS, kiteTestnet, addKiteNetwork } from "@/lib/web3";
 import { useRealChainId } from "@/hooks/useRealChainId";
+import { useAAWallet } from "@/hooks/useAAWallet";
+import { encodeRegisterService } from "@/lib/aa-sdk";
 
 const USDCD = 10 ** USDC_DECIMALS;
 
@@ -13,10 +15,11 @@ interface RegisterServiceModalProps {
 }
 
 export default function RegisterServiceModal({ onClose, onSuccess }: RegisterServiceModalProps) {
-  const { address } = useAccount();
+  const { address, connector } = useAccount();
   const realChainId = useRealChainId();
   const isWrongChain = realChainId !== undefined && realChainId !== kiteTestnet.id;
   const [addingNetwork, setAddingNetwork] = useState(false);
+  const aa = useAAWallet();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -24,15 +27,15 @@ export default function RegisterServiceModal({ onClose, onSuccess }: RegisterSer
   const [price, setPrice] = useState("");
   const [minScore, setMinScore] = useState("0");
 
-  const {
-    writeContract: writeRegister,
-    data: registerHash,
-    isPending: isRegisterPending,
-    error: registerError,
-    reset: resetRegister,
-  } = useWriteContract();
-
-  const { isLoading: isRegisterConfirming, isSuccess: isRegistered } = useWaitForTransactionReceipt({ hash: registerHash });
+  const signUserOp = async (userOpHash: string): Promise<string> => {
+    if (!address) throw new Error("Wallet not available");
+    const provider = (await connector?.getProvider()) as any;
+    if (!provider) throw new Error("Wallet provider not available. Try reconnecting your wallet.");
+    return provider.request({
+      method: "personal_sign",
+      params: [userOpHash, address],
+    });
+  };
 
   const handleAddNetwork = async () => {
     setAddingNetwork(true);
@@ -45,28 +48,35 @@ export default function RegisterServiceModal({ onClose, onSuccess }: RegisterSer
     }
   };
 
-  const handleSubmit = () => {
-    if (!address) return;
+  const handleSubmit = async () => {
+    if (!address || !aa.canonicalAddress) return;
     const priceNum = parseFloat(price);
     if (!name.trim() || !description.trim() || !endpoint.trim() || isNaN(priceNum) || priceNum <= 0) return;
-    resetRegister();
-    writeRegister({
-      address: PULSE_SCORE_ADDRESS,
-      abi: PULSE_SCORE_ABI,
-      functionName: "registerService",
-      args: [
-        name.trim(),
-        description.trim(),
-        endpoint.trim(),
-        BigInt(Math.round(priceNum * USDCD)),
-        BigInt(parseInt(minScore, 10) || 0),
-      ],
-    });
+    aa.resetStatus();
+    try {
+      await aa.sendGaslessTx(
+        {
+          target: PULSE_SCORE_ADDRESS,
+          callData: encodeRegisterService(
+            name.trim(),
+            description.trim(),
+            endpoint.trim(),
+            BigInt(Math.round(priceNum * USDCD)),
+            BigInt(parseInt(minScore, 10) || 0)
+          ),
+        },
+        signUserOp
+      );
+    } catch {
+      // Error handled by hook
+    }
   };
 
-  const isSubmitting = isRegisterPending || isRegisterConfirming;
+  const isSubmitting = aa.lastTxStatus === "pending";
+  const isSuccess = aa.lastTxStatus === "success";
+  const error = aa.lastTxError;
 
-  if (isRegistered && registerHash && !isRegisterPending && !isRegisterConfirming) {
+  if (isSuccess) {
     return (
       <div className="fixed inset-0 z-[999] flex items-center justify-center px-4 py-10 overflow-y-auto">
         <div className="absolute inset-0 bg-black/90" onClick={onClose} />
@@ -202,10 +212,10 @@ export default function RegisterServiceModal({ onClose, onSuccess }: RegisterSer
         </div>
 
         {/* Error */}
-        {registerError && (
-          <div className="mt-4 p-3 border border-neon-red/40 bg-neon-red/10 text-neon-red text-[11px] font-mono">
+        {error && (
+          <div className="mt-4 p-3 border border-danger/30 bg-danger/10 text-danger text-[11px] font-mono">
             <p className="font-bold mb-1">TRANSACTION FAILED</p>
-            <p>{registerError.message || "Unknown error"}</p>
+            <p>{String(error).slice(0, 200)}</p>
           </div>
         )}
 
@@ -213,17 +223,18 @@ export default function RegisterServiceModal({ onClose, onSuccess }: RegisterSer
         <div className="mt-6 pt-4" style={{ borderTop: "1px solid #222" }}>
           <button
             onClick={handleSubmit}
-            disabled={!isValid || isWrongChain || isSubmitting}
-            className={`w-full py-3 text-[11px] font-bold tracking-wider border transition-all ${
-              isValid && !isWrongChain
-                ? "border-neon-green/50 bg-neon-green/10 text-neon-green hover:bg-neon-green/20"
+            disabled={!isValid || isWrongChain || isSubmitting || !aa.canonicalAddress}
+            className={`w-full py-3 text-[11px] font-bold tracking-wider border transition-all flex items-center justify-center gap-2 ${
+              isValid && !isWrongChain && aa.canonicalAddress
+                ? "neon-btn-primary"
                 : "border-border text-text-tertiary cursor-not-allowed"
             }`}
           >
-            {isSubmitting ? "[ CONFIRMING... ]" : "[ REGISTER onchain ]"}
+            {isSubmitting && <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />}
+            {isSubmitting ? "[ BUNDLING USEROP... ]" : "[ REGISTER ON-CHAIN ]"}
           </button>
           <p className="text-[10px] text-text-tertiary text-center mt-3 font-mono">
-            Requires wallet signature. Gas paid in KITE.
+            ⚡ Gasless — no KITE required
           </p>
         </div>
       </div>

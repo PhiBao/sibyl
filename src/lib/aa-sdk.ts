@@ -68,6 +68,11 @@ export function encodeRegisterAgent(address: string): string {
   return iface.encodeFunctionData("registerAgent", [address]);
 }
 
+export function encodeRegisterService(name: string, description: string, endpoint: string, price: bigint, minScore: bigint): string {
+  const iface = new ethers.Interface(PULSE_SCORE_ABI as ethers.InterfaceAbi);
+  return iface.encodeFunctionData("registerService", [name, description, endpoint, price, minScore]);
+}
+
 export function encodeRequestService(serviceId: bigint, buyer: string): string {
   const iface = new ethers.Interface(PULSE_SCORE_ABI as ethers.InterfaceAbi);
   return iface.encodeFunctionData("requestService", [serviceId, buyer]);
